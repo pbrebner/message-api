@@ -1,17 +1,33 @@
+require("dotenv").config();
+
 const createError = require("http-errors");
 const express = require("express");
 const path = require("path");
+const passport = require("passport");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
+const cors = require("cors");
 
 const indexRouter = require("./routes/index");
 
 const app = express();
+app.use(cors());
+
+// Set up mongoose connection
+const mongoose = require("mongoose");
+mongoose.set("strictQuery", false);
+const mongoDB = process.env.MONGODB_URI;
+
+main().catch((err) => console.log(err));
+async function main() {
+    await mongoose.connect(mongoDB);
+}
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "pug");
 
+app.use(passport.initialize());
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
