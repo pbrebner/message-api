@@ -1,4 +1,6 @@
 const User = require("../models/user");
+const Channel = require("../models/channel");
+const Message = require("../models/message");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
@@ -14,18 +16,205 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
     }
 });
 
-exports.createUser = asyncHandler(async (req, res, next) => {
-    res.json("Not implemented yet");
-});
+// TODO: Maybe add avatar, username and bio on create user
+exports.createUser = [
+    body("name", "Name must not be between 1 and 30 characters.")
+        .trim()
+        .isLength({ min: 1, max: 30 })
+        .custom(async (value) => {
+            const user = await User.find({ name: value }).exec();
+            if (user.length > 0) {
+                throw new Error(
+                    "Name is already in use, please use a different one."
+                );
+            }
+        })
+        .escape(),
+    body("email")
+        .trim()
+        .isLength({ min: 1 })
+        .withMessage("Email must not be empty.")
+        .isEmail()
+        .withMessage("Email is not proper email format.")
+        .custom(async (value) => {
+            const user = await User.find({ username: value }).exec();
+            if (user.length > 0) {
+                throw new Error(
+                    "Email is already in use, please use a different one."
+                );
+            }
+        })
+        .escape(),
+    body("password", "Password must be a minimum of 6 characters.")
+        .trim()
+        .isLength({ min: 6 })
+        .escape(),
+    body("passwordConfirm", "Passwords must match.")
+        .trim()
+        .custom((value, { req }) => {
+            return value === req.body.password;
+        })
+        .escape(),
+    asyncHandler(async (req, res, next) => {
+        const errors = validationResult(req);
 
+        bcrypt.hash(req.body.password, 10, async (err, hashedPassword) => {
+            if (err) {
+                return next(err);
+            } else {
+                //Create User object with data
+                const user = new User({
+                    name: req.body.name,
+                    email: req.body.email,
+                    password: hashedPassword,
+                    memberStatus: true,
+                });
+
+                if (!errors.isEmpty()) {
+                    res.status(400).json({
+                        user: { name: user.name, email: user.email },
+                        errors: errors.array(),
+                    });
+                } else {
+                    await user.save();
+                    res.json({ message: "User successfully created" });
+                }
+            }
+        });
+    }),
+];
+
+// TODO: Might be a better way to do the users profile?
 exports.getUser = asyncHandler(async (req, res, next) => {
-    res.json("Not implemented yet");
+    if (req.user._id === req.params.userId) {
+        // Get the users info of the supplied access token
+        const user = await User.findOne(
+            { _id: req.user._id },
+            "name email bio memberStatus channels timeStamp"
+        )
+            .populate("channels")
+            .exec();
+
+        if (!user) {
+            // Inform client that not user was found
+            res.status(404).json({ error: "User not found" });
+        } else {
+            res.json({ user: user, usersProfile: true });
+        }
+    } else {
+        // Get the other users info from the parameters
+        const user = await User.findOne(
+            { _id: req.params.userId },
+            "name bio memberStatus timeStamp"
+        ).exec();
+
+        if (!user) {
+            // Inform client that not user was found
+            res.status(404).json({ error: "User not found" });
+        } else {
+            res.json({ user: user, usersProfile: false });
+        }
+    }
 });
 
-exports.updateUser = asyncHandler(async (req, res, next) => {
-    res.json("Not implemented yet");
-});
+exports.updateUser = [
+    body("name", "Name must not be between 1 and 30 characters.")
+        .trim()
+        .isLength({ min: 1, max: 30 })
+        .custom(async (value, { req }) => {
+            const user = await User.find({ name: value }).exec();
+            if (user.length > 0) {
+                // Check if name is users own
+                if (req.user.name != req.body.name) {
+                    throw new Error(
+                        "Name is already in use, please use a different one."
+                    );
+                }
+            }
+        })
+        .escape(),
+    body("email", "Email must not be empty.")
+        .trim()
+        .isLength({ min: 1 })
+        .isEmail()
+        .withMessage("Email is not proper email format.")
+        .custom(async (value, { req }) => {
+            const user = await User.find({ username: value }).exec();
+            if (user.length > 0) {
+                // Check if email is users own
+                if (req.user.username != req.body.username) {
+                    throw new Error(
+                        "Email is already in use, please use a different one."
+                    );
+                }
+            }
+        })
+        .escape(),
+    body("bio", "Bio must be less than 300 characters.")
+        .trim()
+        .isLength({ max: 300 })
+        .blacklist("<>"),
+    asyncHandler(async (req, res, next) => {
+        //Confirm user is updating their own account
+        if (req.user._id === req.params.userId) {
+            const errors = validationResult(req);
 
+            if (!errors.isEmpty()) {
+                res.status(400).json({
+                    user: {
+                        name: req.body.name,
+                        email: req.body.email,
+                        bio: req.body.bio,
+                    },
+                    errors: errors.array(),
+                });
+            } else {
+                const user = await User.findByIdAndUpdate(req.user._id, {
+                    name: req.body.name,
+                    email: req.body.email,
+                    bio: req.body.bio,
+                });
+
+                if (!user) {
+                    return res.status(404).json({
+                        error: `No user with id ${req.user._id} exists`,
+                    });
+                } else {
+                    res.json({
+                        message: "User updated successfully.",
+                        user: req.body.name,
+                    });
+                }
+            }
+        } else {
+            res.status(401).json({
+                error: "Not authorized for this action.",
+            });
+        }
+    }),
+];
+
+// TODO: Need to figure out if I want to delete the channels/messages that the user was apart of. Maybe delete the messages but leave the channels if they still have other users?
 exports.deleteUser = asyncHandler(async (req, res, next) => {
-    res.json("Not implemented yet");
+    //Confirm user is deleting their own account
+    if (req.user._id === req.params.userId) {
+        const user = await User.findByIdAndDelete(req.user._id);
+
+        if (!user) {
+            return res
+                .status(404)
+                .json({ error: `No user with id ${req.user._id} exists` });
+        } else {
+            // const channels = await Channel.deleteMany({ user: req.user._id });
+            // const messages = await Message.deleteMany({ user: req.user._id });
+            res.json({
+                message: "User deleted successfully.",
+                user: user.name,
+                // channels: channels,
+                // messages: messages,
+            });
+        }
+    } else {
+        res.status(401).json({ error: "Not authorized for this action." });
+    }
 });
