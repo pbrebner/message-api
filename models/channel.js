@@ -8,9 +8,5 @@ const channelSchema = new Schema({
     timeStamp: { type: Date, default: Date.now, required: true },
 });
 
-channelSchema.virtual("url").get(function () {
-    return `/api/channels/${this._id}`;
-});
-
 // Export model
 module.exports = mongoose.model("Channel", channelSchema);
