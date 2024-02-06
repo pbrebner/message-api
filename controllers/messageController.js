@@ -4,6 +4,7 @@ const Channel = require("../models/channel");
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
+// TODO: Could check if req.user._id is in the channels users
 exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
     const messages = await Message.find(
         { channel: req.params.channelId },
@@ -22,6 +23,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
 
 // TODO: Content can only be text right now. Need to adjust based on model (Images etc.)
 // Maybe create an image attribute to message that can be added.
+// TODO: Could check if req.user._id is in the channels users
 exports.createMessage = [
     body("content", "Message has to be between 1 and 280 characters.")
         .trim()
