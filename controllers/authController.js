@@ -65,8 +65,8 @@ exports.login = (req, res) => {
                 console.log("User Authenticated.");
 
                 const user = await User.findOne(
-                    { username: req.body.username },
-                    "name username memberStatus adminStatus"
+                    { email: req.body.email },
+                    "name email memberStatus"
                 ).exec();
 
                 // Create Token
