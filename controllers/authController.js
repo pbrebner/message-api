@@ -7,27 +7,33 @@ const User = require("../models/user");
 
 // Set up passport to authenticate login
 passport.use(
-    new LocalStrategy(async (username, password, done) => {
-        try {
-            const user = await User.findOne({ username: username });
+    new LocalStrategy(
+        {
+            usernameField: "email",
+            passwordField: "password",
+        },
+        async (email, password, done) => {
+            try {
+                const user = await User.findOne({ email: email });
 
-            if (!user) {
-                return done(null, false, {
-                    message: "Incorrect username or password.",
-                });
+                if (!user) {
+                    return done(null, false, {
+                        message: "Incorrect email or password.",
+                    });
+                }
+                const match = await bcrypt.compare(password, user.password);
+                if (!match) {
+                    // passwords do not match!
+                    return done(null, false, {
+                        message: "Incorrect email or password.",
+                    });
+                }
+                return done(null, user);
+            } catch (err) {
+                return done(err);
             }
-            const match = await bcrypt.compare(password, user.password);
-            if (!match) {
-                // passwords do not match!
-                return done(null, false, {
-                    message: "Incorrect password or password.",
-                });
-            }
-            return done(null, user);
-        } catch (err) {
-            return done(err);
         }
-    })
+    )
 );
 
 // Function to verify token
