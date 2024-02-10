@@ -7,7 +7,7 @@ const { body, validationResult } = require("express-validator");
 
 exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
     const channels = await Channel.find(
-        { users: req.user_id },
+        { users: { $in: req.user._id } },
         "title users timeStamp"
     )
         .populate("users", { name: 1 })
