@@ -6,10 +6,8 @@ const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
 exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
-    const channels = await Channel.find(
-        { users: { $in: req.user._id } },
-        "title users timeStamp"
-    )
+    const channels = await Channel.find({ users: { $in: req.user._id } })
+        .select({ title: 1, users: { $ne: req.user._id }, timeStamp: 1 })
         .populate("users", { name: 1 })
         .exec();
 
@@ -22,9 +20,14 @@ exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
 
 // TODO: Maybe add custom validator to confirm users are all valid ObjectId
 // TODO: Decide if I want to add current user to userList on frontend or push from backend (below)
+// TODO: Need to figure out what I'm passing back for the users
 exports.createChannel = [
-    body("title").trim().blacklist("<>"),
-    body("users", "Users can't be empty.").trim().notEmpty(),
+    body("title", "Title can't be more than 30 characters.")
+        .trim()
+        .isLength({ max: 30 })
+        .optional()
+        .blacklist("<>"),
+    body("users", "At least one user is required.").trim().notEmpty(),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
@@ -32,7 +35,7 @@ exports.createChannel = [
         userList.push(req.user._id);
 
         const channel = new Channel({
-            title: req.body.title,
+            title: req.body.title || "",
             users: userList,
         });
 
@@ -61,8 +64,13 @@ exports.createChannel = [
 
 exports.getChannel = asyncHandler(async (req, res, next) => {
     const channel = await Channel.findOne({ _id: req.params.channelId })
-        .populate("users", { name: 1, timeStamp: 1 })
-        .populate("messages")
+        .select({
+            title: 1,
+            users: { $ne: req.user._id },
+            messages: 0,
+            timeStamp: 1,
+        })
+        .populate("users", { name: 1, bio: 1, avatar: 1, timeStamp: 1 })
         .exec();
 
     if (!channel) {
@@ -73,10 +81,14 @@ exports.getChannel = asyncHandler(async (req, res, next) => {
     }
 });
 
-// Can only update the channel title right now
-// TODO: Add way to add or remove users
+// TODO: Add way to add or remove users (Limit the users somehow)
 exports.updateChannel = [
-    body("title").trim().blacklist("<>"),
+    body("title", "Title can't be more than 30 characters.")
+        .trim()
+        .isLength({ max: 30 })
+        .optional()
+        .blacklist("<>"),
+    body("users", "At least one user is required.").trim().notEmpty(),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
@@ -100,22 +112,23 @@ exports.updateChannel = [
                 // Inform client channel update had errors
                 res.status(400).json({
                     channel: {
-                        title: req.body.title,
+                        title: req.body.title || channel.title,
                     },
                     errors: errors.array(),
                 });
                 return;
             } else {
-                const channel = await Channel.findByIdAndUpdate(
+                const updatedChannel = await Channel.findByIdAndUpdate(
                     req.params.channelId,
                     {
-                        title: req.body.title,
+                        title: req.body.title || channel.title,
+                        users: req.body.users || channel.users,
                     }
                 );
 
                 res.json({
                     message: "Channel updated successfully.",
-                    chanel: channel,
+                    chanel: updatedChannel,
                 });
             }
         } else {
