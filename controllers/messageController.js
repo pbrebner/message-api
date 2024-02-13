@@ -10,7 +10,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
         { channel: req.params.channelId },
         "content user likes timeStamp"
     )
-        .populate("user", { name: 1 })
+        .populate("user", { name: 1, avatar: 1 })
         .sort({ timeStamp: 1 })
         .exec();
 
@@ -25,9 +25,9 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
 // Maybe create an image attribute to message that can be added.
 // TODO: Could check if req.user._id is in the channels users
 exports.createMessage = [
-    body("content", "Message has to be between 1 and 280 characters.")
+    body("content", "Message has to be between 1 and 600 characters.")
         .trim()
-        .isLength({ min: 1, max: 280 })
+        .isLength({ min: 1, max: 600 })
         .blacklist("<>"),
 
     asyncHandler(async (req, res, next) => {
@@ -58,7 +58,7 @@ exports.createMessage = [
 
 exports.getMessage = asyncHandler(async (req, res, next) => {
     const message = await Message.findOne({ _id: req.params.messageId })
-        .populate("user", { name: 1 })
+        .populate("user", { name: 1, avatar: 1 })
         .exec();
 
     if (!message) {
@@ -68,10 +68,9 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     }
 });
 
+// Only likes are capable of being updated at the moment.
 exports.updateMessage = [
-    // Only likes are capable of being updated.
     body("likes").optional(),
-
     asyncHandler(async (req, res, next) => {
         const message = await Message.findByIdAndUpdate(req.params.messageId, {
             likes: req.body.likes,
