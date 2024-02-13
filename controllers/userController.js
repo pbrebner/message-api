@@ -16,7 +16,6 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
     }
 });
 
-// TODO: Maybe add avatar, username and bio on create user
 exports.createUser = [
     body("name", "Name must not be between 1 and 30 characters.")
         .trim()
@@ -90,8 +89,9 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         // Get the users info of the supplied access token
         const user = await User.findOne(
             { _id: req.user._id },
-            "name email bio memberStatus channels timeStamp"
+            "name email bio avatar memberStatus friends channels timeStamp"
         )
+            .populate("friends", { name: 1, bio: 1, avatar: 1, online: 1 })
             .populate("channels")
             .exec();
 
@@ -105,7 +105,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         // Get the other users info from the parameters
         const user = await User.findOne(
             { _id: req.params.userId },
-            "name bio memberStatus timeStamp"
+            "name bio avatar memberStatus timeStamp"
         ).exec();
 
         if (!user) {
@@ -117,6 +117,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
     }
 });
 
+// TODO: Add custom validator to confirm that friend exists
 exports.updateUser = [
     body("name", "Name must not be between 1 and 30 characters.")
         .trim()
@@ -132,6 +133,7 @@ exports.updateUser = [
                 }
             }
         })
+        .optional()
         .escape(),
     body("email", "Email must not be empty.")
         .trim()
@@ -149,11 +151,16 @@ exports.updateUser = [
                 }
             }
         })
+        .optional()
         .escape(),
     body("bio", "Bio must be less than 300 characters.")
         .trim()
         .isLength({ max: 300 })
+        .optional()
         .blacklist("<>"),
+    body("avatar").optional().trim(),
+    body("friends").optional(),
+    body("online").optional(),
     asyncHandler(async (req, res, next) => {
         //Confirm user is updating their own account
         if (req.user._id === req.params.userId) {
@@ -162,17 +169,20 @@ exports.updateUser = [
             if (!errors.isEmpty()) {
                 res.status(400).json({
                     user: {
-                        name: req.body.name,
-                        email: req.body.email,
-                        bio: req.body.bio,
+                        name: req.body.name || req.user.name,
+                        email: req.body.email || req.user.email,
+                        bio: req.body.bio || req.user.bio,
                     },
                     errors: errors.array(),
                 });
             } else {
                 const user = await User.findByIdAndUpdate(req.user._id, {
-                    name: req.body.name,
-                    email: req.body.email,
-                    bio: req.body.bio,
+                    name: req.body.name || req.user.name,
+                    email: req.body.email || req.user.email,
+                    bio: req.body.bio || req.user.bio,
+                    avatar: req.body.avatar || req.user.avatar,
+                    friends: req.body.friends || req.user.friends,
+                    online: req.body.online || req.user.online,
                 });
 
                 if (!user) {
@@ -182,7 +192,6 @@ exports.updateUser = [
                 } else {
                     res.json({
                         message: "User updated successfully.",
-                        user: req.body.name,
                     });
                 }
             }
