@@ -6,8 +6,10 @@ const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
 exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
-    const channels = await Channel.find({ users: { $in: req.user._id } })
-        .select({ title: 1, users: { $ne: req.user._id }, timeStamp: 1 })
+    const channels = await Channel.find(
+        { users: { $in: req.user._id } },
+        "title users timeStamp"
+    )
         .populate("users", { name: 1 })
         .exec();
 
@@ -63,13 +65,10 @@ exports.createChannel = [
 ];
 
 exports.getChannel = asyncHandler(async (req, res, next) => {
-    const channel = await Channel.findOne({ _id: req.params.channelId })
-        .select({
-            title: 1,
-            users: { $ne: req.user._id },
-            messages: 0,
-            timeStamp: 1,
-        })
+    const channel = await Channel.findOne(
+        { _id: req.params.channelId },
+        "title users timeStamp"
+    )
         .populate("users", { name: 1, bio: 1, avatar: 1, timeStamp: 1 })
         .exec();
 
