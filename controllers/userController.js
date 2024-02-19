@@ -196,14 +196,22 @@ exports.updateUser = [
             } else {
                 const friendList = user.friends;
 
-                // Prepare friendList if required
+                // Prepare friendList if required and update friendUpdate's friends
                 if (req.body.friends) {
                     if (friendList.includes(req.body.friendUpdate)) {
+                        // Remove friend
                         friendList = friendList.filter(
                             (friend) => friend != req.body.friendUpdate
                         );
+                        await User.findByIdAndUpdate(req.body.friendUpdate, {
+                            $pull: { friends: req.user._id },
+                        });
                     } else {
+                        // Add friend
                         friendList.push(req.body.friendUpdate);
+                        await User.findByIdAndUpdate(req.body.friendUpdate, {
+                            $push: { friends: req.user._id },
+                        });
                     }
                 }
 
