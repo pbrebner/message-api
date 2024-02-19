@@ -12,7 +12,7 @@ const userSchema = new Schema({
             "https://blog-bucket-banana.s3.us-west-2.amazonaws.com/blogProfileDefault.png",
     },
     memberStatus: { type: Boolean, default: false },
-    friends: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    friends: [{ type: Schema.Types.ObjectId, ref: "Friend" }],
     channels: [{ type: Schema.Types.ObjectId, ref: "Channel" }],
     online: { type: Boolean, default: false },
     timeStamp: { type: Date, default: Date.now, required: true },
