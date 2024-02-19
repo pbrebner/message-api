@@ -4,26 +4,33 @@ const Channel = require("../models/channel");
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
-// TODO: Could check if req.user._id is in the channels users
 exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
-    const messages = await Message.find(
-        { channel: req.params.channelId },
-        "content user likes timeStamp"
-    )
-        .populate("user", { name: 1, avatar: 1 })
-        .sort({ timeStamp: 1 })
-        .exec();
+    const channel = await Channel.findById(
+        req.params.channelId,
+        "users"
+    ).exec();
 
-    if (!messages) {
-        res.status(404).json({ error: "No entries found in database" });
+    if (channel.users.includes(req.user._id)) {
+        const messages = await Message.find(
+            { channel: req.params.channelId },
+            "content user likes timeStamp"
+        )
+            .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
+            .sort({ timeStamp: 1 })
+            .exec();
+
+        if (!messages) {
+            res.status(404).json({ error: "No entries found in database" });
+        } else {
+            res.json(messages);
+        }
     } else {
-        res.json(messages);
+        res.status(401).json({ error: "Not authorized to view this data." });
     }
 });
 
 // TODO: Content can only be text right now. Need to adjust based on model (Images etc.)
 // Maybe create an image attribute to message that can be added.
-// TODO: Could check if req.user._id is in the channels users
 exports.createMessage = [
     body("content", "Message has to be between 1 and 600 characters.")
         .trim()
@@ -33,12 +40,6 @@ exports.createMessage = [
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
-        const message = new Message({
-            content: req.body.content,
-            user: req.user._id,
-            channel: req.params.channelId,
-        });
-
         if (!errors.isEmpty()) {
             res.status(400).json({
                 content: req.body.content,
@@ -46,19 +47,41 @@ exports.createMessage = [
             });
             return;
         } else {
-            await message.save();
-            //Add message to channel
-            await Channel.findByIdAndUpdate(req.params.channelId, {
-                $push: { messages: message },
-            });
-            res.json({ message: "Message saved successfully." });
+            const channel = await Channel.findById(
+                req.params.channelId,
+                "users"
+            ).exec();
+
+            if (channel.users.includes(req.user._id)) {
+                const message = new Message({
+                    content: req.body.content,
+                    user: req.user._id,
+                    channel: req.params.channelId,
+                });
+
+                await message.save();
+
+                //Add message to channel
+                await Channel.findByIdAndUpdate(req.params.channelId, {
+                    $push: { messages: message },
+                }).exec();
+
+                res.json({
+                    messageId: message._id,
+                    message: "Message saved successfully.",
+                });
+            } else {
+                res.status(401).json({
+                    error: "Not authorized for this action.",
+                });
+            }
         }
     }),
 ];
 
 exports.getMessage = asyncHandler(async (req, res, next) => {
     const message = await Message.findOne({ _id: req.params.messageId })
-        .populate("user", { name: 1, avatar: 1 })
+        .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
         .exec();
 
     if (!message) {
@@ -74,7 +97,7 @@ exports.updateMessage = [
     asyncHandler(async (req, res, next) => {
         const message = await Message.findByIdAndUpdate(req.params.messageId, {
             likes: req.body.likes,
-        });
+        }).exec();
 
         if (!message) {
             return res.status(404).json({
@@ -82,6 +105,7 @@ exports.updateMessage = [
             });
         } else {
             res.json({
+                messageId: message._id,
                 message: "Message likes updated successfully.",
             });
         }
@@ -101,14 +125,17 @@ exports.deleteMessage = asyncHandler(async (req, res, next) => {
 
     // Only the message creator can delete their own message
     if (message.user._id == req.user._id) {
-        const message = await Message.findByIdAndDelete(req.params.messageId);
+        const message = await Message.findByIdAndDelete(
+            req.params.messageId
+        ).exec();
+
         await Channel.findByIdAndUpdate(req.params.channelId, {
             $pull: { messages: message._id },
-        });
+        }).exec();
 
         res.json({
             message: "Message deleted successfully.",
-            message: message,
+            messageId: message._id,
         });
     } else {
         res.status(401).json({ error: "Not authorized for this action." });
