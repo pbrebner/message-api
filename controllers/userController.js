@@ -7,7 +7,10 @@ const { body, validationResult } = require("express-validator");
 const bcrypt = require("bcryptjs");
 
 exports.getAllUsers = asyncHandler(async (req, res, next) => {
-    const users = await User.find({}, "name memberStatus timeStamp").exec();
+    const users = await User.find(
+        {},
+        "name avatar memberStatus timeStamp"
+    ).exec();
 
     if (!users) {
         res.status(404).json({ error: "No entries found in database." });
@@ -76,14 +79,13 @@ exports.createUser = [
                     });
                 } else {
                     await user.save();
-                    res.json({ message: "User successfully created" });
+                    res.json({ message: "User successfully created." });
                 }
             }
         });
     }),
 ];
 
-// TODO: Might be a better way to do the users profile?
 exports.getUser = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
         // Get the users info of the supplied access token
@@ -97,7 +99,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 
         if (!user) {
             // Inform client that not user was found
-            res.status(404).json({ error: "User not found" });
+            res.status(404).json({ error: "User not found." });
         } else {
             res.json({ user: user, usersProfile: true });
         }
@@ -110,23 +112,24 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 
         if (!user) {
             // Inform client that not user was found
-            res.status(404).json({ error: "User not found" });
+            res.status(404).json({ error: "User not found." });
         } else {
             res.json({ user: user, usersProfile: false });
         }
     }
 });
 
-// TODO: Add custom validator to confirm that friend exists
 exports.updateUser = [
     body("name", "Name must not be between 1 and 30 characters.")
         .trim()
         .isLength({ min: 1, max: 30 })
         .custom(async (value, { req }) => {
+            const currentUser = await User.findById(req.user._id).exec();
             const user = await User.find({ name: value }).exec();
+
             if (user.length > 0) {
                 // Check if name is users own
-                if (req.user.name != req.body.name) {
+                if (currentUser.name != value) {
                     throw new Error(
                         "Name is already in use, please use a different one."
                     );
@@ -141,10 +144,12 @@ exports.updateUser = [
         .isEmail()
         .withMessage("Email is not proper email format.")
         .custom(async (value, { req }) => {
+            const currentUser = await User.findById(req.user._id).exec();
             const user = await User.find({ username: value }).exec();
+
             if (user.length > 0) {
                 // Check if email is users own
-                if (req.user.username != req.body.username) {
+                if (currentUser.username != value) {
                     throw new Error(
                         "Email is already in use, please use a different one."
                     );
@@ -159,41 +164,63 @@ exports.updateUser = [
         .optional()
         .blacklist("<>"),
     body("avatar").optional().trim(),
-    body("friends").optional(),
+    body("friends", "Have to specify a user")
+        .notEmpty()
+        .optional()
+        .custom(async (value, { req }) => {
+            const user = await User.find({ name: value }).exec();
+
+            if (!user) {
+                throw new Error(`No user with ${value} exists.`);
+            } else {
+                req.body.friendUpdate = user._id;
+            }
+        }),
     body("online").optional(),
     asyncHandler(async (req, res, next) => {
         //Confirm user is updating their own account
         if (req.user._id === req.params.userId) {
             const errors = validationResult(req);
 
+            const user = await User.findById(req.user._id).exec();
+
             if (!errors.isEmpty()) {
                 res.status(400).json({
                     user: {
-                        name: req.body.name || req.user.name,
-                        email: req.body.email || req.user.email,
-                        bio: req.body.bio || req.user.bio,
+                        name: req.body.name || user.name,
+                        email: req.body.email || user.email,
+                        bio: req.body.bio || user.bio,
                     },
                     errors: errors.array(),
                 });
             } else {
-                const user = await User.findByIdAndUpdate(req.user._id, {
-                    name: req.body.name || req.user.name,
-                    email: req.body.email || req.user.email,
-                    bio: req.body.bio || req.user.bio,
-                    avatar: req.body.avatar || req.user.avatar,
-                    friends: req.body.friends || req.user.friends,
-                    online: req.body.online || req.user.online,
+                const friendList = user.friends;
+
+                // Prepare friendList if required
+                if (req.body.friends) {
+                    if (friendList.includes(req.body.friendUpdate)) {
+                        friendList = friendList.filter(
+                            (friend) => friend != req.body.friendUpdate
+                        );
+                    } else {
+                        friendList.push(req.body.friendUpdate);
+                    }
+                }
+
+                // Update User
+                const updatedUser = await User.findByIdAndUpdate(req.user._id, {
+                    name: req.body.name || user.name,
+                    email: req.body.email || user.email,
+                    bio: req.body.bio || user.bio,
+                    avatar: req.body.avatar || user.avatar,
+                    friends: friendList,
+                    online: req.body.online || user.online,
                 });
 
-                if (!user) {
-                    return res.status(404).json({
-                        error: `No user with id ${req.user._id} exists`,
-                    });
-                } else {
-                    res.json({
-                        message: "User updated successfully.",
-                    });
-                }
+                res.json({
+                    userId: updatedUser._id,
+                    message: "User updated successfully.",
+                });
             }
         } else {
             res.status(401).json({
@@ -203,7 +230,7 @@ exports.updateUser = [
     }),
 ];
 
-// TODO: Need to figure out if I want to delete the channels/messages that the user was apart of. Maybe delete the messages but leave the channels if they still have other users?
+// Deletes the user, channel (if less than 2 users), and all user messages
 exports.deleteUser = asyncHandler(async (req, res, next) => {
     //Confirm user is deleting their own account
     if (req.user._id === req.params.userId) {
@@ -214,11 +241,31 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 .status(404)
                 .json({ error: `No user with id ${req.user._id} exists` });
         } else {
-            // const channels = await Channel.deleteMany({ user: req.user._id });
-            // const messages = await Message.deleteMany({ user: req.user._id });
+            const channels = await Channel.find(
+                { users: { $in: req.user._id } },
+                "users"
+            );
+
+            // Delete channel if user was one of two users
+            channels.forEach(async (channel) => {
+                if (channel.users.length == 2) {
+                    await Channel.findByIdAndDelete(channel._id);
+                } else {
+                    await Channel.findByIdAndUpdate(channel._id, {
+                        $pull: {
+                            users: req.user._id,
+                            messages: { user: req.user._id },
+                        },
+                    });
+                }
+            });
+
+            // Delete all messages
+            const messages = await Message.deleteMany({ user: req.user._id });
+
             res.json({
                 message: "User deleted successfully.",
-                user: user.name,
+                userId: user._id,
                 // channels: channels,
                 // messages: messages,
             });
