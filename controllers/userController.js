@@ -149,7 +149,7 @@ exports.updateUser = [
 
             if (user.length > 0) {
                 // Check if email is users own
-                if (currentUser.username != value) {
+                if (currentUser.email != value) {
                     throw new Error(
                         "Email is already in use, please use a different one."
                     );
