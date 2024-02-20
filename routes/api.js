@@ -3,6 +3,7 @@ const router = express.Router();
 
 const authController = require("../controllers/authController");
 const userController = require("../controllers/userController");
+const friendController = require("../controllers/friendController");
 const messageController = require("../controllers/messageController");
 const channelController = require("../controllers/channelController");
 
@@ -37,6 +38,38 @@ router.delete(
     "users/:userId",
     authController.verifyToken,
     userController.deleteUser
+);
+
+// FRIEND ROUTES
+
+router.get(
+    "/users/:userId/friends",
+    authController.verifyToken,
+    friendController.getAllUserFriends
+);
+
+router.post(
+    "/users/:userId/friends",
+    authController.verifyToken,
+    friendController.createFriend
+);
+
+router.get(
+    "/users/:userId/friends/:friendId",
+    authController.verifyToken,
+    friendController.getFriend
+);
+
+router.put(
+    "/users/:userId/friends/:friendId",
+    authController.verifyToken,
+    friendController.updateFriend
+);
+
+router.delete(
+    "/users/:userId/friends/:friendId",
+    authController.verifyToken,
+    friendController.deleteFriend
 );
 
 // CHANNEL ROUTES
