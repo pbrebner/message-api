@@ -1,5 +1,6 @@
 const Channel = require("../models/channel");
 const User = require("../models/user");
+const Friend = require("../models/friend");
 const Message = require("../models/message");
 
 const asyncHandler = require("express-async-handler");
@@ -13,11 +14,7 @@ exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
         .populate("users", { name: 1, avatar: 1, timeStamp: 1 })
         .exec();
 
-    if (!channels) {
-        res.status(404).json({ error: "No entries found in database" });
-    } else {
-        res.json(channels);
-    }
+    res.json(channels);
 });
 
 exports.createChannel = [
@@ -30,14 +27,20 @@ exports.createChannel = [
         .isArray({ min: 1, max: 9 })
         .custom(async (users, { req }) => {
             req.body.userList = [];
-            const currentUser = await User.findById(req.user._id).exec();
+            const currentUser = await User.findById(req.user._id)
+                .populate("friends")
+                .exec();
 
             users.forEach(async (value) => {
                 const user = await User.find({ name: value }).exec();
+                const friend = await Friend.find({
+                    user: currentUser._id,
+                    targetUser: user._id || "",
+                }).exec();
 
                 if (!user) {
-                    throw new Error(`No user with ${value} exists.`);
-                } else if (!currentUser.friends.includes(user._id)) {
+                    throw new Error(`No user with name ${value} exists.`);
+                } else if (friend.status != 3) {
                     throw new Error(
                         `You can only send Direct Messages to friends. Please remove ${value}.`
                     );
@@ -128,10 +131,14 @@ exports.updateChannel = [
 
             users.forEach(async (value) => {
                 const user = await User.find({ name: value }).exec();
+                const friend = await Friend.find({
+                    user: currentUser._id,
+                    targetUser: user._id || "",
+                }).exec();
 
                 if (!user) {
-                    throw new Error(`No user with ${value} exists.`);
-                } else if (!currentUser.friends.includes(user._id)) {
+                    throw new Error(`No user with name ${value} exists.`);
+                } else if (friend.status != 3) {
                     throw new Error(
                         `You can only send Direct Messages to friends.`
                     );
@@ -222,6 +229,7 @@ exports.deleteChannel = asyncHandler(async (req, res, next) => {
         });
     }
 
+    // Can only be deleted by channel user
     if (channel.users.includes(req.user._id)) {
         const channel = await Channel.findByIdAndDelete(
             req.params.channelId
