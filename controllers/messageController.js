@@ -19,11 +19,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
             .sort({ timeStamp: 1 })
             .exec();
 
-        if (!messages) {
-            res.status(404).json({ error: "No entries found in database" });
-        } else {
-            res.json(messages);
-        }
+        res.json(messages);
     } else {
         res.status(401).json({ error: "Not authorized to view this data." });
     }
