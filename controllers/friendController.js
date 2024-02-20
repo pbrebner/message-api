@@ -111,7 +111,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
         const friendA = await Friend.findByIdAndUpdate(req.params.friendId, {
             $set: { status: 3 },
-        });
+        }).exec();
 
         if (!friendA) {
             // Inform client that friend was not found
@@ -119,7 +119,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
         } else {
             const friendB = await Friend.findByIdAndUpdate(friendA.targetUser, {
                 $set: { status: 3 },
-            });
+            }).exec();
 
             res.json({
                 friendId: friendA._id,
@@ -135,19 +135,23 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
 
 exports.deleteFriend = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
-        const friendA = await Friend.findByIdAndDelete(req.params.friendId);
+        const friendA = await Friend.findByIdAndDelete(
+            req.params.friendId
+        ).exec();
 
         if (!friendA) {
             return res.status(404).json({ error: "Error finding Friend" });
         } else {
-            const friendB = await Friend.findByIdAndDelete(friendA.targetUser);
+            const friendB = await Friend.findByIdAndDelete(
+                friendA.targetUser
+            ).exec();
 
             await User.findByIdAndUpdate(friendA.user, {
                 $pull: { friends: friendA._id },
-            });
+            }).exec();
             await User.findByIdAndUpdate(friendB.user, {
                 $pull: { friends: friendB._id },
-            });
+            }).exec();
         }
     } else {
         res.status(401).json({ error: "Not authorized for this action." });
