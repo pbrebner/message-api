@@ -27,20 +27,17 @@ exports.createChannel = [
         .isArray({ min: 1, max: 5 })
         .custom(async (users, { req }) => {
             req.body.userList = [];
-            const currentUser = await User.findById(req.user._id)
-                .populate("friends")
-                .exec();
 
             users.forEach(async (value) => {
                 const user = await User.find({ name: value }).exec();
                 const friend = await Friend.find({
-                    user: currentUser._id,
+                    user: req.user._id,
                     targetUser: user._id || "",
                 }).exec();
 
                 if (!user) {
                     throw new Error(`No user with name ${value} exists.`);
-                } else if (friend.status != 3) {
+                } else if (!friend || friend.status != 3) {
                     throw new Error(
                         `You can only initiate Direct Messages with friends. Please remove ${value}.`
                     );
@@ -129,20 +126,18 @@ exports.updateChannel = [
     body("users", "Can't update more than one channel user.")
         .isArray({ max: 1 })
         .custom(async (users, { req }) => {
-            const currentUser = await User.findById(req.user._id).exec();
-
             users.forEach(async (value) => {
                 const user = await User.find({ name: value }).exec();
                 const friend = await Friend.find({
-                    user: currentUser._id,
+                    user: req.user._id,
                     targetUser: user._id || "",
                 }).exec();
 
                 if (!user) {
                     throw new Error(`No user with name ${value} exists.`);
-                } else if (friend.status != 3) {
+                } else if (!friend || friend.status != 3) {
                     throw new Error(
-                        `You can only send Direct Messages to friends.`
+                        "You can only send Direct Messages to friends."
                     );
                 } else {
                     req.body.userUpdate = user._id;
@@ -185,9 +180,9 @@ exports.updateChannel = [
                         userList.push(req.body.userUpdate);
                     }
 
-                    if (userList.length > 10) {
+                    if (userList.length > 6) {
                         res.status(400).json({
-                            errors: ["Can't have more than 10 channel users."],
+                            errors: ["Can't have more than 6 channel users."],
                         });
                     }
 
