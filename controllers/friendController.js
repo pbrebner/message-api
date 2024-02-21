@@ -6,7 +6,7 @@ const { body, validationResult } = require("express-validator");
 
 exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
-        const friends = await Friend.find({ _id: req.user._id })
+        const friends = await Friend.find({ user: req.user._id })
             .populate("targetUser", {
                 name: 1,
                 avatar: 1,
@@ -24,14 +24,28 @@ exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
 });
 
 exports.createFriend = [
-    body("targetUser", "Have to specify a user")
+    body("targetUser", "Have to specify a user.")
         .trim()
         .notEmpty()
         .custom(async (value, { req }) => {
             const user = await User.find({ name: value }).exec();
+            const friend = await Friend.find({
+                user: req.user._id,
+                targetUser: user._id || "",
+            }).exec();
 
             if (!user) {
                 throw new Error(`No user with ${value} exists.`);
+            } else if (friend && friend.status == 3) {
+                throw new Error("You are already friends with this user.");
+            } else if (friend && friend.status == 2) {
+                throw new Error(
+                    "This user has already sent you a friend request."
+                );
+            } else if (friend && friend.status == 1) {
+                throw new Error(
+                    "You have already sent this user a friend request."
+                );
             } else {
                 req.body.recipientId = user._id;
             }
