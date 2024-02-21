@@ -23,8 +23,8 @@ exports.createChannel = [
         .isLength({ max: 30 })
         .optional()
         .blacklist("<>"),
-    body("users", "Must be between 1 and 9 users.")
-        .isArray({ min: 1, max: 9 })
+    body("users", "Must be between 1 and 5 users.")
+        .isArray({ min: 1, max: 5 })
         .custom(async (users, { req }) => {
             req.body.userList = [];
             const currentUser = await User.findById(req.user._id)
@@ -42,7 +42,7 @@ exports.createChannel = [
                     throw new Error(`No user with name ${value} exists.`);
                 } else if (friend.status != 3) {
                     throw new Error(
-                        `You can only send Direct Messages to friends. Please remove ${value}.`
+                        `You can only initiate Direct Messages with friends. Please remove ${value}.`
                     );
                 } else {
                     req.body.userList.push(user._id);
@@ -74,6 +74,7 @@ exports.createChannel = [
                 // Inform client Channel already Exists
                 res.json({
                     channelId: channelCheck._id,
+                    newChannel: false,
                     message: "Redirecting to Existing Channel.",
                 });
             }
@@ -96,6 +97,7 @@ exports.createChannel = [
             // Inform client channel was saved
             res.json({
                 channelId: channel._id,
+                newChannel: true,
                 message: "Channel successfully created.",
             });
         }
