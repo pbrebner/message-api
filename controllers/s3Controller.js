@@ -42,10 +42,10 @@ async function uploadFileS3(file, fileBuffer) {
 }
 
 //Generate signed URL
-async function getSignedURL(object) {
+async function getSignedURL(fileName) {
     const getObjectParams = {
         Bucket: bucketName,
-        Key: object.fileName,
+        Key: fileName,
     };
 
     const command = new GetObjectCommand(getObjectParams);
@@ -55,10 +55,10 @@ async function getSignedURL(object) {
 }
 
 // Delete file from S3
-async function deleteFileS3(object) {
+async function deleteFileS3(fileName) {
     const deleteParams = {
         Bucket: bucketName,
-        Key: object.fileName,
+        Key: fileName,
     };
 
     await s3Client.send(new DeleteObjectCommand(deleteParams));
