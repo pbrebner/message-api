@@ -152,6 +152,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
     }
 });
 
+// TODO: ADD VALIDATION FOR AVATAR FILE
 exports.updateUser = [
     upload.single("avatar"),
     body("name", "Name must not be between 1 and 30 characters.")
