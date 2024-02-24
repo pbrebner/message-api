@@ -19,6 +19,15 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
             .sort({ timeStamp: 1 })
             .exec();
 
+        // Get url for uers avatar image
+        for (let message of messages) {
+            if (message.user.avatar == "") {
+                message.user.avatarURL = process.env.DEFAULT_AVATAR;
+            } else {
+                message.user.avatarURL = await getSignedURL(user.avatar);
+            }
+        }
+
         res.json(messages);
     } else {
         res.status(401).json({ error: "Not authorized to view this data." });
@@ -83,6 +92,13 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     if (!message) {
         res.status(404).json({ error: "No entries found in database" });
     } else {
+        // Get url for uers avatar image
+        if (message.user.avatar == "") {
+            message.user.avatarURL = process.env.DEFAULT_AVATAR;
+        } else {
+            message.user.avatarURL = await getSignedURL(user.avatar);
+        }
+
         res.json(message);
     }
 });

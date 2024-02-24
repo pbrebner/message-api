@@ -2,6 +2,7 @@ const Channel = require("../models/channel");
 const User = require("../models/user");
 const Friend = require("../models/friend");
 const Message = require("../models/message");
+const { getSignedURL } = require("../controllers/s3Controller");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
@@ -13,6 +14,17 @@ exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
     )
         .populate("users", { name: 1, avatar: 1, timeStamp: 1 })
         .exec();
+
+    // Get url for uers avatar image
+    for (let channel of channels) {
+        for (let user of channel.users) {
+            if (user.avatar == "") {
+                user.avatarURL = process.env.DEFAULT_AVATAR;
+            } else {
+                user.avatarURL = await getSignedURL(user.avatar);
+            }
+        }
+    }
 
     res.json(channels);
 });
@@ -113,6 +125,15 @@ exports.getChannel = asyncHandler(async (req, res, next) => {
         // Inform client that no channel was found
         res.status(404).json({ error: "Channel not found" });
     } else {
+        // Get url for uers avatar image
+        for (let user of channel.users) {
+            if (user.avatar == "") {
+                user.avatarURL = process.env.DEFAULT_AVATAR;
+            } else {
+                user.avatarURL = await getSignedURL(user.avatar);
+            }
+        }
+
         res.json(channel);
     }
 });
