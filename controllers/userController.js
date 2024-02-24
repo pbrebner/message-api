@@ -2,16 +2,35 @@ const User = require("../models/user");
 const Friend = require("../models/friend");
 const Channel = require("../models/channel");
 const Message = require("../models/message");
+const {
+    uploadFileS3,
+    getSignedURL,
+    deleteFileS3,
+} = require("../controllers/s3Controller");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 const bcrypt = require("bcryptjs");
+
+// Set up multer to handle file uploads
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 exports.getAllUsers = asyncHandler(async (req, res, next) => {
     const users = await User.find(
         {},
         "name avatar memberStatus timeStamp"
     ).exec();
+
+    // Get url for avatar image
+    for (let user of users) {
+        if (user.avatar == "") {
+            user.avatarURL = process.env.DEFAULT_AVATAR;
+        } else {
+            user.avatarURL = await getSignedURL(user.avatar);
+        }
+    }
 
     res.json(users);
 });
@@ -101,6 +120,13 @@ exports.getUser = asyncHandler(async (req, res, next) => {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
         } else {
+            // Get url for avatar image
+            if (user.avatar == "") {
+                user.avatarURL = process.env.DEFAULT_AVATAR;
+            } else {
+                user.avatarURL = await getSignedURL(user.avatar);
+            }
+
             res.json({ user: user, usersProfile: true });
         }
     } else {
@@ -114,12 +140,20 @@ exports.getUser = asyncHandler(async (req, res, next) => {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
         } else {
+            // Get url for avatar image
+            if (user.avatar == "") {
+                user.avatarURL = process.env.DEFAULT_AVATAR;
+            } else {
+                user.avatarURL = await getSignedURL(user.avatar);
+            }
+
             res.json({ user: user, usersProfile: false });
         }
     }
 });
 
 exports.updateUser = [
+    upload.single("avatar"),
     body("name", "Name must not be between 1 and 30 characters.")
         .trim()
         .isLength({ min: 1, max: 30 })
@@ -163,7 +197,7 @@ exports.updateUser = [
         .isLength({ max: 300 })
         .optional()
         .blacklist("<>"),
-    body("avatar").optional().trim(),
+    body("avatar").optional(),
     body("online").optional(),
     asyncHandler(async (req, res, next) => {
         //Confirm user is updating their own account
@@ -182,19 +216,47 @@ exports.updateUser = [
                     errors: errors.array(),
                 });
             } else {
-                // Update User
-                const updatedUser = await User.findByIdAndUpdate(req.user._id, {
-                    name: req.body.name || user.name,
-                    email: req.body.email || user.email,
-                    bio: req.body.bio || user.bio,
-                    avatar: req.body.avatar || user.avatar,
-                    online: req.body.online || user.online,
-                }).exec();
+                // Handle avatar upload
+                if (req.file) {
+                    // Can perform any file manipulation here before uploading
+                    const fileName = await uploadFileS3(
+                        req.file,
+                        req.file.buffer
+                    );
 
-                res.json({
-                    userId: updatedUser._id,
-                    message: "User updated successfully.",
-                });
+                    // Update User
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user._id,
+                        {
+                            name: req.body.name || user.name,
+                            email: req.body.email || user.email,
+                            bio: req.body.bio || user.bio,
+                            avatar: fileName,
+                            online: req.body.online || user.online,
+                        }
+                    ).exec();
+
+                    res.json({
+                        userId: updatedUser._id,
+                        message: "User updated successfully.",
+                    });
+                } else {
+                    // Update User
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user._id,
+                        {
+                            name: req.body.name || user.name,
+                            email: req.body.email || user.email,
+                            bio: req.body.bio || user.bio,
+                            online: req.body.online || user.online,
+                        }
+                    ).exec();
+
+                    res.json({
+                        userId: updatedUser._id,
+                        message: "User updated successfully.",
+                    });
+                }
             }
         } else {
             res.status(401).json({
@@ -215,6 +277,11 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 .status(404)
                 .json({ error: `No user with id ${req.user._id} exists` });
         } else {
+            // Delete avatar off s3 bucket
+            if (user.avatar != "") {
+                await deleteFileS3(user.avatar);
+            }
+
             // Delete Friends
             await Friend.deleteMany({ user: req.user._id });
             const friends = await Friend.deleteMany({

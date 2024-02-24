@@ -8,8 +8,7 @@ const userSchema = new Schema({
     bio: { type: String, default: "" },
     avatar: {
         type: String,
-        default:
-            "https://blog-bucket-banana.s3.us-west-2.amazonaws.com/blogProfileDefault.png",
+        default: "",
     },
     memberStatus: { type: Boolean, default: false },
     friends: [{ type: Schema.Types.ObjectId, ref: "Friend" }],
