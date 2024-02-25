@@ -1,5 +1,6 @@
 const Message = require("../models/message");
 const Channel = require("../models/channel");
+const { getSignedURL } = require("../controllers/s3Controller");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
