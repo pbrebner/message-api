@@ -13,15 +13,16 @@ exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
         "title users timeStamp"
     )
         .populate("users", { name: 1, avatar: 1, timeStamp: 1 })
+        .lean()
         .exec();
 
     // Get url for uers avatar image
     for (let channel of channels) {
         for (let user of channel.users) {
             if (user.avatar == "") {
-                user.avatarURL = process.env.DEFAULT_AVATAR;
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                user.avatarURL = await getSignedURL(user.avatar);
+                user["avatarURL"] = await getSignedURL(user.avatar);
             }
         }
     }
@@ -119,6 +120,7 @@ exports.getChannel = asyncHandler(async (req, res, next) => {
         "title users timeStamp"
     )
         .populate("users", { name: 1, bio: 1, avatar: 1, timeStamp: 1 })
+        .lean()
         .exec();
 
     if (!channel) {
@@ -128,9 +130,9 @@ exports.getChannel = asyncHandler(async (req, res, next) => {
         // Get url for uers avatar image
         for (let user of channel.users) {
             if (user.avatar == "") {
-                user.avatarURL = process.env.DEFAULT_AVATAR;
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                user.avatarURL = await getSignedURL(user.avatar);
+                user["avatarURL"] = await getSignedURL(user.avatar);
             }
         }
 

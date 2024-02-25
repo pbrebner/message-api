@@ -1,5 +1,6 @@
 const Friend = require("../models/friend");
 const User = require("../models/user");
+const { getSignedURL } = require("../controllers/s3Controller");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
@@ -13,7 +14,19 @@ exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
                 online: 1,
                 timeStamp: 1,
             })
+            .lean()
             .exec();
+
+        // Get url for uers avatar image
+        for (let friend of friends) {
+            if (friend.targetUser.avatar == "") {
+                friend.targetUser["avatarURL"] = process.env.DEFAULT_AVATAR;
+            } else {
+                friend.targetUser["avatarURL"] = await getSignedURL(
+                    friend.targetUser.avatar
+                );
+            }
+        }
 
         res.json(friends);
     } else {
@@ -106,12 +119,22 @@ exports.getFriend = asyncHandler(async (req, res, next) => {
                 online: 1,
                 timeStamp: 1,
             })
+            .lean()
             .exec();
 
         if (!friend) {
             // Inform client that friend was not found
             res.status(404).json({ error: "Friend not found." });
         } else {
+            // Get url for uers avatar image
+            if (friend.targetUser.avatar == "") {
+                friend.targetUser["avatarURL"] = process.env.DEFAULT_AVATAR;
+            } else {
+                friend.targetUser["avatarURL"] = await getSignedURL(
+                    friend.targetUser.avatar
+                );
+            }
+
             res.json({ friend: friend });
         }
     } else {

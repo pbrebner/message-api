@@ -18,14 +18,15 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
         )
             .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
             .sort({ timeStamp: 1 })
+            .lean()
             .exec();
 
         // Get url for uers avatar image
         for (let message of messages) {
             if (message.user.avatar == "") {
-                message.user.avatarURL = process.env.DEFAULT_AVATAR;
+                message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                message.user.avatarURL = await getSignedURL(user.avatar);
+                message.user["avatarURL"] = await getSignedURL(user.avatar);
             }
         }
 
@@ -88,6 +89,7 @@ exports.createMessage = [
 exports.getMessage = asyncHandler(async (req, res, next) => {
     const message = await Message.findOne({ _id: req.params.messageId })
         .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
+        .lean()
         .exec();
 
     if (!message) {
@@ -95,9 +97,9 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     } else {
         // Get url for uers avatar image
         if (message.user.avatar == "") {
-            message.user.avatarURL = process.env.DEFAULT_AVATAR;
+            message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
         } else {
-            message.user.avatarURL = await getSignedURL(user.avatar);
+            message.user["avatarURL"] = await getSignedURL(user.avatar);
         }
 
         res.json(message);

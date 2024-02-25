@@ -18,17 +18,16 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 exports.getAllUsers = asyncHandler(async (req, res, next) => {
-    const users = await User.find(
-        {},
-        "name avatar memberStatus timeStamp"
-    ).exec();
+    const users = await User.find({}, "name avatar memberStatus timeStamp")
+        .lean()
+        .exec();
 
     // Get url for avatar image
     for (let user of users) {
         if (user.avatar == "") {
-            user.avatarURL = process.env.DEFAULT_AVATAR;
+            user["avatarURL"] = process.env.DEFAULT_AVATAR;
         } else {
-            user.avatarURL = await getSignedURL(user.avatar);
+            user["avatarURL"] = await getSignedURL(user.avatar);
         }
     }
 
@@ -114,6 +113,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         )
             .populate("friends", { targetUser: 1, status: 1, timeStamp: 1 })
             .populate("channels")
+            .lean()
             .exec();
 
         if (!user) {
@@ -122,9 +122,9 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         } else {
             // Get url for avatar image
             if (user.avatar == "") {
-                user.avatarURL = process.env.DEFAULT_AVATAR;
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                user.avatarURL = await getSignedURL(user.avatar);
+                user["avatarURL"] = await getSignedURL(user.avatar);
             }
 
             res.json({ user: user, usersProfile: true });
@@ -134,7 +134,9 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         const user = await User.findOne(
             { _id: req.params.userId },
             "name bio avatar memberStatus timeStamp"
-        ).exec();
+        )
+            .lean()
+            .exec();
 
         if (!user) {
             // Inform client that not user was found
@@ -142,9 +144,9 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         } else {
             // Get url for avatar image
             if (user.avatar == "") {
-                user.avatarURL = process.env.DEFAULT_AVATAR;
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                user.avatarURL = await getSignedURL(user.avatar);
+                user["avatarURL"] = await getSignedURL(user.avatar);
             }
 
             res.json({ user: user, usersProfile: false });
