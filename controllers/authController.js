@@ -57,6 +57,10 @@ exports.verifyToken = (req, res, next) => {
     });
 };
 
+exports.refresh = (req, res, next) => {
+    console.log("Not implemeted yet");
+};
+
 exports.login = (req, res) => {
     passport.authenticate(
         "local",
@@ -78,8 +82,25 @@ exports.login = (req, res) => {
                 // Create Token
                 const token = jwt.sign(
                     { user: user },
-                    process.env.ACCESS_TOKEN_SECRET
+                    process.env.ACCESS_TOKEN_SECRET,
+                    { expiresIn: "20m" }
                 );
+
+                //Create Refresh token
+                const refreshToken = jwt.sign(
+                    { user: user },
+                    process.env.REFRESH_TOKEN_SECRET,
+                    { expiresIn: "1d" }
+                );
+
+                // Assigning refresh token in http-only cookie
+                res.cookie("jwt", refreshToken, {
+                    httpOnly: true,
+                    sameSite: "None",
+                    secure: true,
+                    maxAge: 24 * 60 * 60 * 1000,
+                });
+
                 res.json({ body: user, token: token });
             }
         }
