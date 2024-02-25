@@ -58,7 +58,32 @@ exports.verifyToken = (req, res, next) => {
 };
 
 exports.refresh = (req, res, next) => {
-    console.log("Not implemeted yet");
+    if (req.cookies?.jwt) {
+        // Destructuring refreshToken from cookie
+        const refreshToken = req.cookies.jwt;
+
+        // Verifying refresh token
+        jwt.verify(
+            refreshToken,
+            process.env.REFRESH_TOKEN_SECRET,
+            (err, decoded) => {
+                if (err) {
+                    // Wrong Refesh Token
+                    return res.status(403).json({ message: "Invalid Token." });
+                } else {
+                    // Correct token we send a new access token
+                    const accessToken = jwt.sign(
+                        { user: decoded.user },
+                        process.env.ACCESS_TOKEN_SECRET,
+                        { expiresIn: "20m" }
+                    );
+                    return res.json({ accessToken });
+                }
+            }
+        );
+    } else {
+        return res.status(401).json({ message: "No token." });
+    }
 };
 
 exports.login = (req, res) => {
@@ -105,4 +130,8 @@ exports.login = (req, res) => {
             }
         }
     )(req, res);
+};
+
+exports.logout = (req, res, next) => {
+    console.log("not implemented yet");
 };
