@@ -45,9 +45,55 @@ exports.verifyToken = (req, res, next) => {
         return res.status(401).json({ message: "No token." });
     }
 
-    req.token = token;
-
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        /*
+        if (err) {
+            if (err.name == "TokenExpiredError") {
+                
+                    err = {
+                        name: 'TokenExpiredError',
+                        message: 'jwt expired',
+                        expiredAt: 1408621000
+                    }
+                
+
+                if (req.cookies?.jwt) {
+                    // Destructuring refreshToken from cookie
+                    const refreshToken = req.cookies.jwt;
+
+                    // Verifying refresh token
+                    jwt.verify(
+                        refreshToken,
+                        process.env.REFRESH_TOKEN_SECRET,
+                        (err, decoded) => {
+                            if (err) {
+                                // Wrong Refesh Token
+                                return res
+                                    .status(403)
+                                    .json({ message: "Invalid Token." });
+                            } else {
+                                // Correct token we send a new access token
+                                const accessToken = jwt.sign(
+                                    { user: decoded.user },
+                                    process.env.ACCESS_TOKEN_SECRET,
+                                    { expiresIn: "20m" }
+                                );
+                                //return res.json({ accessToken });
+                                req.accessToken = accessToken;
+                            }
+                        }
+                    );
+                } else {
+                    return res
+                        .status(401)
+                        .json({ message: "No token/token expired." });
+                }
+            } else {
+                return res.status(403).json({ message: "Invalid Token." });
+            }
+        }
+        */
+
         if (err) {
             return res.status(403).json({ message: "Invalid Token." });
         }
@@ -94,7 +140,7 @@ exports.login = (req, res) => {
             if (!user) {
                 // Credentials are wrong, respond with error message
                 console.log(options.message); // Prints the reason of the failure
-                res.status(400).json({ errors: options.message });
+                return res.status(400).json({ errors: options.message });
             } else {
                 // Credentials are correct
                 console.log("User Authenticated.");
@@ -126,12 +172,12 @@ exports.login = (req, res) => {
                     maxAge: 24 * 60 * 60 * 1000,
                 });
 
-                res.json({ body: user, token: token });
+                return res.json({ body: user, token: token });
             }
         }
     )(req, res);
 };
 
 exports.logout = (req, res, next) => {
-    console.log("not implemented yet");
+    res.clearCookie("jwt");
 };

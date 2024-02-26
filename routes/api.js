@@ -16,6 +16,10 @@ router.get("/", function (req, res, next) {
 
 router.post("/login", authController.login);
 
+router.post("/refresh", authController.refresh);
+
+router.post("/logout", authController.logout);
+
 // USER ROUTES
 
 router.get("/users", authController.verifyToken, userController.getAllUsers);
