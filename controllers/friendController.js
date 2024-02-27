@@ -30,7 +30,7 @@ exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
 
         res.json(friends);
     } else {
-        res.status(401).json({
+        res.status(403).json({
             error: "Not authorized for this action.",
         });
     }
@@ -102,7 +102,7 @@ exports.createFriend = [
                 });
             }
         } else {
-            res.status(401).json({
+            res.status(403).json({
                 error: "Not authorized for this action.",
             });
         }
@@ -138,7 +138,7 @@ exports.getFriend = asyncHandler(async (req, res, next) => {
             res.json({ friend: friend });
         }
     } else {
-        res.status(401).json({
+        res.status(403).json({
             error: "Not authorized for this action.",
         });
     }
@@ -164,7 +164,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
             });
         }
     } else {
-        res.status(401).json({
+        res.status(403).json({
             error: "Not authorized for this action.",
         });
     }
@@ -191,6 +191,6 @@ exports.deleteFriend = asyncHandler(async (req, res, next) => {
             }).exec();
         }
     } else {
-        res.status(401).json({ error: "Not authorized for this action." });
+        res.status(403).json({ error: "Not authorized for this action." });
     }
 });

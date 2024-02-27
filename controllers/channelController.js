@@ -228,7 +228,7 @@ exports.updateChannel = [
                 });
             }
         } else {
-            res.status(401).json({
+            res.status(403).json({
                 error: "Not authorized for this action.",
             });
         }
@@ -271,7 +271,7 @@ exports.deleteChannel = asyncHandler(async (req, res, next) => {
             channelId: channel._id,
         });
     } else {
-        res.status(401).json({
+        res.status(403).json({
             error: "Not authorized for this action.",
         });
     }

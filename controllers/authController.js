@@ -95,7 +95,7 @@ exports.verifyToken = (req, res, next) => {
         */
 
         if (err) {
-            return res.status(403).json({ message: "Invalid Token." });
+            return res.status(401).json({ message: "Invalid Token." });
         }
 
         req.user = decoded.user;
@@ -115,7 +115,7 @@ exports.refresh = (req, res, next) => {
             (err, decoded) => {
                 if (err) {
                     // Wrong Refesh Token
-                    return res.status(403).json({ message: "Invalid Token." });
+                    return res.status(401).json({ message: "Invalid Token." });
                 } else {
                     // Correct token we send a new access token
                     const accessToken = jwt.sign(

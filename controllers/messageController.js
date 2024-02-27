@@ -34,7 +34,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
 
         res.json(messages);
     } else {
-        res.status(401).json({ error: "Not authorized to view this data." });
+        res.status(403).json({ error: "Not authorized to view this data." });
     }
 });
 
@@ -80,7 +80,7 @@ exports.createMessage = [
                     message: "Message saved successfully.",
                 });
             } else {
-                res.status(401).json({
+                res.status(403).json({
                     error: "Not authorized for this action.",
                 });
             }
@@ -155,6 +155,6 @@ exports.deleteMessage = asyncHandler(async (req, res, next) => {
             messageId: message._id,
         });
     } else {
-        res.status(401).json({ error: "Not authorized for this action." });
+        res.status(403).json({ error: "Not authorized for this action." });
     }
 });

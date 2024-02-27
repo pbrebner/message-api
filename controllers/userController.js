@@ -281,7 +281,7 @@ exports.updateUser = [
                 }
             }
         } else {
-            res.status(401).json({
+            res.status(403).json({
                 error: "Not authorized for this action.",
             });
         }
@@ -347,6 +347,6 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
             });
         }
     } else {
-        res.status(401).json({ error: "Not authorized for this action." });
+        res.status(403).json({ error: "Not authorized for this action." });
     }
 });
