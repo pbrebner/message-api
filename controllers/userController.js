@@ -17,6 +17,8 @@ const multer = require("multer");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+const sharp = require("sharp");
+
 exports.getAllUsers = asyncHandler(async (req, res, next) => {
     const users = await User.find({}, "name avatar memberStatus timeStamp")
         .lean()
@@ -154,7 +156,6 @@ exports.getUser = asyncHandler(async (req, res, next) => {
     }
 });
 
-// TODO: ADD VALIDATION FOR AVATAR FILE
 exports.updateUser = [
     upload.single("avatar"),
     body("name", "Name must not be between 1 and 30 characters.")
@@ -200,7 +201,24 @@ exports.updateUser = [
         .isLength({ max: 300 })
         .optional()
         .blacklist("<>"),
-    body("avatar").optional(),
+    body("avatar")
+        .trim()
+        .optional()
+        .custom(async (value, { req }) => {
+            const file = req.file;
+            const allowedFileTypes = ["image/png", "image/jpeg", "image/jpg"];
+            const allowedSize = 2;
+
+            if (!allowedFileTypes.includes(file.mimetype)) {
+                throw new Error(
+                    "Avatar can only be png, jpeg or jpg file formats."
+                );
+            }
+
+            if (file.size / (1024 * 1024) > allowedSize) {
+                throw new Error("File size is too large. 2MB maximum.");
+            }
+        }),
     body("online").optional(),
     asyncHandler(async (req, res, next) => {
         //Confirm user is updating their own account
@@ -221,11 +239,12 @@ exports.updateUser = [
             } else {
                 // Handle avatar upload
                 if (req.file) {
-                    // Can perform any file manipulation here before uploading
-                    const fileName = await uploadFileS3(
-                        req.file,
-                        req.file.buffer
-                    );
+                    // Change the size of the avatar
+                    const fileBuffer = await sharp(req.file.buffer)
+                        .resize({ height: 1080, width: 1080, fit: "contain" })
+                        .toBuffer();
+
+                    const fileName = await uploadFileS3(req.file, fileBuffer);
 
                     // Update User
                     const updatedUser = await User.findByIdAndUpdate(
@@ -280,7 +299,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 .status(404)
                 .json({ error: `No user with id ${req.user._id} exists` });
         } else {
-            // Delete avatar off s3 bucket
+            // Delete avatar off s3 bucket if not default
             if (user.avatar != "") {
                 await deleteFileS3(user.avatar);
             }
@@ -290,6 +309,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
             const friends = await Friend.deleteMany({
                 userTarget: req.user._id,
             }).exec();
+
             friends.forEach(async (friend) => {
                 await User.findByIdAndUpdate(friend.user, {
                     $pull: { friends: friend._id },
