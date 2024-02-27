@@ -124,7 +124,7 @@ exports.getFriend = asyncHandler(async (req, res, next) => {
 
         if (!friend) {
             // Inform client that friend was not found
-            res.status(404).json({ error: "Friend not found." });
+            return res.status(404).json({ error: "Friend not found." });
         } else {
             // Get url for uers avatar image
             if (friend.targetUser.avatar == "") {
@@ -152,7 +152,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
 
         if (!friendA) {
             // Inform client that friend was not found
-            res.status(404).json({ error: "Friend not found." });
+            return res.status(404).json({ error: "Friend not found." });
         } else {
             const friendB = await Friend.findByIdAndUpdate(friendA.targetUser, {
                 $set: { status: 3 },

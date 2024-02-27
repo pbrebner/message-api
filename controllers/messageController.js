@@ -93,7 +93,7 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
         .exec();
 
     if (!message) {
-        res.status(404).json({ error: "No entries found in database" });
+        return res.status(404).json({ error: "No entries found in database" });
     } else {
         // Get url for uers avatar image
         if (message.user.avatar == "") {

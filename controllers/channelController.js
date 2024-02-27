@@ -65,10 +65,9 @@ exports.createChannel = [
 
         if (!errors.isEmpty()) {
             // Inform client post had errors
-            res.status(400).json({
+            return res.status(400).json({
                 errors: errors.array(),
             });
-            return;
         } else {
             const userList = req.body.userList;
 
@@ -82,7 +81,7 @@ exports.createChannel = [
 
             if (channelCheck) {
                 // Inform client Channel already Exists
-                res.json({
+                return res.json({
                     channelId: channelCheck._id,
                     newChannel: false,
                     message: "Redirecting to Existing Channel.",
@@ -125,7 +124,7 @@ exports.getChannel = asyncHandler(async (req, res, next) => {
 
     if (!channel) {
         // Inform client that no channel was found
-        res.status(404).json({ error: "Channel not found" });
+        return res.status(404).json({ error: "Channel not found" });
     } else {
         // Get url for uers avatar image
         for (let user of channel.users) {
@@ -186,10 +185,9 @@ exports.updateChannel = [
         if (channel.users.includes(req.user._id)) {
             if (!errors.isEmpty()) {
                 // Inform client channel update had errors
-                res.status(400).json({
+                return res.status(400).json({
                     errors: errors.array(),
                 });
-                return;
             } else {
                 const userList = channel.users;
 
