@@ -26,7 +26,9 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
             if (message.user.avatar == "") {
                 message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
-                message.user["avatarURL"] = await getSignedURL(user.avatar);
+                message.user["avatarURL"] = await getSignedURL(
+                    message.user.avatar
+                );
             }
         }
 
