@@ -33,13 +33,13 @@ router.get(
 );
 
 router.put(
-    "users/:userId",
+    "/users/:userId",
     authController.verifyToken,
     userController.updateUser
 );
 
 router.delete(
-    "users/:userId",
+    "/users/:userId",
     authController.verifyToken,
     userController.deleteUser
 );
