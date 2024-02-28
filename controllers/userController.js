@@ -260,6 +260,7 @@ exports.updateUser = [
 
                     res.json({
                         userId: updatedUser._id,
+                        avatar: fileName,
                         message: "User updated successfully.",
                     });
                 } else {
@@ -276,6 +277,7 @@ exports.updateUser = [
 
                     res.json({
                         userId: updatedUser._id,
+                        avatar: user.avatar,
                         message: "User updated successfully.",
                     });
                 }
