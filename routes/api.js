@@ -16,7 +16,7 @@ router.get("/", function (req, res, next) {
 
 router.post("/login", authController.login);
 
-router.post("/refresh", authController.refresh);
+router.get("/refresh", authController.refresh);
 
 router.post("/logout", authController.logout);
 
