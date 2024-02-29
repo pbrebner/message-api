@@ -42,25 +42,28 @@ exports.createFriend = [
         .notEmpty()
         .custom(async (value, { req }) => {
             const user = await User.find({ name: value }).exec();
-            const friend = await Friend.find({
-                user: req.user._id,
-                targetUser: user._id || "",
-            }).exec();
 
             if (!user) {
                 throw new Error(`No user with ${value} exists.`);
-            } else if (friend && friend.status == 3) {
-                throw new Error("You are already friends with this user.");
-            } else if (friend && friend.status == 2) {
-                throw new Error(
-                    "This user has already sent you a friend request."
-                );
-            } else if (friend && friend.status == 1) {
-                throw new Error(
-                    "You have already sent this user a friend request."
-                );
             } else {
-                req.body.recipientId = user._id;
+                const friend = await Friend.find({
+                    user: req.user._id,
+                    targetUser: user._id,
+                }).exec();
+
+                if (friend && friend.status == 3) {
+                    throw new Error("You are already friends with this user.");
+                } else if (friend && friend.status == 2) {
+                    throw new Error(
+                        "This user has already sent you a friend request."
+                    );
+                } else if (friend && friend.status == 1) {
+                    throw new Error(
+                        "You have already sent this user a friend request."
+                    );
+                } else {
+                    req.body.recipientId = user._id;
+                }
             }
         }),
 
@@ -72,6 +75,7 @@ exports.createFriend = [
                 res.status(400).json({
                     errors: errors.array(),
                 });
+                return;
             } else {
                 //Create both friend objects with data
                 const friendRequester = new Friend({
@@ -146,15 +150,21 @@ exports.getFriend = asyncHandler(async (req, res, next) => {
 
 exports.updateFriend = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
-        const friendA = await Friend.findByIdAndUpdate(req.params.friendId, {
-            $set: { status: 3 },
+        const friendA = await Friend.findById(req.params.friendId).exec();
+        const friendB = await Friend.findOne({
+            user: friendA.targetUser,
+            targetUser: friendA.user,
         }).exec();
 
-        if (!friendA) {
+        if (!friendA || !friendB) {
             // Inform client that friend was not found
             return res.status(404).json({ error: "Friend not found." });
         } else {
-            const friendB = await Friend.findByIdAndUpdate(friendA.targetUser, {
+            await Friend.findByIdAndUpdate(friendA._id, {
+                $set: { status: 3 },
+            }).exec();
+
+            await Friend.findByIdAndUpdate(friendB._id, {
                 $set: { status: 3 },
             }).exec();
 
@@ -179,9 +189,10 @@ exports.deleteFriend = asyncHandler(async (req, res, next) => {
         if (!friendA) {
             return res.status(404).json({ error: "Error finding Friend" });
         } else {
-            const friendB = await Friend.findByIdAndDelete(
-                friendA.targetUser
-            ).exec();
+            const friendB = await Friend.findOneAndDelete({
+                user: friendA.targetUser,
+                targetUser: friendA.user,
+            }).exec();
 
             await User.findByIdAndUpdate(friendA.user, {
                 $pull: { friends: friendA._id },
@@ -189,6 +200,11 @@ exports.deleteFriend = asyncHandler(async (req, res, next) => {
             await User.findByIdAndUpdate(friendB.user, {
                 $pull: { friends: friendB._id },
             }).exec();
+
+            res.json({
+                message: "Friend deleted successfully.",
+                friendId: friendA._id,
+            });
         }
     } else {
         res.status(403).json({ error: "Not authorized for this action." });
