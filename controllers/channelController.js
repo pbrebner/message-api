@@ -202,13 +202,13 @@ exports.updateChannel = [
                     }
 
                     if (userList.length > 6) {
-                        res.status(400).json({
+                        return res.status(400).json({
                             errors: ["Can't have more than 6 channel users."],
                         });
                     }
 
                     if (userList.length < 2) {
-                        res.status(400).json({
+                        return res.status(400).json({
                             errors: ["Can't have less than 2 channel users."],
                         });
                     }
@@ -236,8 +236,8 @@ exports.updateChannel = [
 ];
 
 exports.deleteChannel = asyncHandler(async (req, res, next) => {
-    const channel = await Channel.findOne(
-        { _id: req.params.channelId },
+    const channel = await Channel.findById(
+        req.params.channelId,
         "users"
     ).exec();
 
