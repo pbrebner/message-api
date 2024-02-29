@@ -207,7 +207,7 @@ exports.updateUser = [
         .custom(async (value, { req }) => {
             const file = req.file;
             const allowedFileTypes = ["image/png", "image/jpeg", "image/jpg"];
-            const allowedSize = 2;
+            const allowedSize = 5;
 
             if (!allowedFileTypes.includes(file.mimetype)) {
                 throw new Error(
@@ -216,7 +216,7 @@ exports.updateUser = [
             }
 
             if (file.size / (1024 * 1024) > allowedSize) {
-                throw new Error("File size is too large. 2MB maximum.");
+                throw new Error("File size is too large. 5MB maximum.");
             }
         }),
     body("online").optional(),
@@ -260,8 +260,7 @@ exports.updateUser = [
 
                     res.json({
                         userId: updatedUser._id,
-                        avatar: fileName,
-                        message: "User updated successfully.",
+                        message: "User and avatar updated successfully.",
                     });
                 } else {
                     // Update User
@@ -277,7 +276,6 @@ exports.updateUser = [
 
                     res.json({
                         userId: updatedUser._id,
-                        avatar: user.avatar,
                         message: "User updated successfully.",
                     });
                 }
@@ -312,29 +310,34 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 userTarget: req.user._id,
             }).exec();
 
-            friends.forEach(async (friend) => {
-                await User.findByIdAndUpdate(friend.user, {
-                    $pull: { friends: friend._id },
-                }).exec();
-            });
+            if (friends.length > 0) {
+                friends.forEach(async (friend) => {
+                    await User.findByIdAndUpdate(friend.user, {
+                        $pull: { friends: friend._id },
+                    }).exec();
+                });
+            }
 
             // Delete channels if user was one of two users
             const channels = await Channel.find(
                 { users: { $in: req.user._id } },
                 "users"
             ).exec();
-            channels.forEach(async (channel) => {
-                if (channel.users.length == 2) {
-                    await Channel.findByIdAndDelete(channel._id).exec();
-                } else {
-                    await Channel.findByIdAndUpdate(channel._id, {
-                        $pull: {
-                            users: req.user._id,
-                            messages: { user: req.user._id },
-                        },
-                    }).exec();
-                }
-            });
+
+            if (channels.length > 0) {
+                channels.forEach(async (channel) => {
+                    if (channel.users.length == 2) {
+                        await Channel.findByIdAndDelete(channel._id).exec();
+                    } else {
+                        await Channel.findByIdAndUpdate(channel._id, {
+                            $pull: {
+                                users: req.user._id,
+                                messages: { user: req.user._id },
+                            },
+                        }).exec();
+                    }
+                });
+            }
 
             // Delete all messages
             await Message.deleteMany({
