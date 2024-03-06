@@ -165,13 +165,11 @@ exports.updateUser = [
             const currentUser = await User.findById(req.user._id).exec();
             const user = await User.find({ name: value }).exec();
 
-            if (user.length > 0) {
-                // Check if name is users own
-                if (currentUser.name != value) {
-                    throw new Error(
-                        "Name is already in use, please use a different one."
-                    );
-                }
+            // Check if name is taken by another user
+            if (user.length > 0 && currentUser.name != value) {
+                throw new Error(
+                    "Name is already in use, please use a different one."
+                );
             }
         })
         .optional()
@@ -185,13 +183,11 @@ exports.updateUser = [
             const currentUser = await User.findById(req.user._id).exec();
             const user = await User.find({ email: value }).exec();
 
-            if (user.length > 0) {
-                // Check if email is users own
-                if (currentUser.email != value) {
-                    throw new Error(
-                        "Email is already in use, please use a different one."
-                    );
-                }
+            // Check if email is taken by another user
+            if (user.length > 0 && currentUser.email != value) {
+                throw new Error(
+                    "Email is already in use, please use a different one."
+                );
             }
         })
         .optional()
