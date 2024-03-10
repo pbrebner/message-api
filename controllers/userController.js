@@ -233,48 +233,30 @@ exports.updateUser = [
                     errors: errors.array(),
                 });
             } else {
-                // Handle avatar upload
+                let fileName = "";
+
                 if (req.file) {
                     // Change the size of the avatar
                     const fileBuffer = await sharp(req.file.buffer)
                         .resize({ height: 1080, width: 1080, fit: "contain" })
                         .toBuffer();
 
-                    const fileName = await uploadFileS3(req.file, fileBuffer);
-
-                    // Update User
-                    const updatedUser = await User.findByIdAndUpdate(
-                        req.user._id,
-                        {
-                            name: req.body.name || user.name,
-                            email: req.body.email || user.email,
-                            bio: req.body.bio || user.bio,
-                            avatar: fileName,
-                            online: req.body.online || user.online,
-                        }
-                    ).exec();
-
-                    res.json({
-                        userId: updatedUser._id,
-                        message: "User and avatar updated successfully.",
-                    });
-                } else {
-                    // Update User
-                    const updatedUser = await User.findByIdAndUpdate(
-                        req.user._id,
-                        {
-                            name: req.body.name || user.name,
-                            email: req.body.email || user.email,
-                            bio: req.body.bio || user.bio,
-                            online: req.body.online || user.online,
-                        }
-                    ).exec();
-
-                    res.json({
-                        userId: updatedUser._id,
-                        message: "User updated successfully.",
-                    });
+                    fileName = await uploadFileS3(req.file, fileBuffer);
                 }
+
+                // Update User
+                const updatedUser = await User.findByIdAndUpdate(req.user._id, {
+                    name: req.body.name || user.name,
+                    email: req.body.email || user.email,
+                    bio: req.body.bio || user.bio,
+                    avatar: fileName,
+                    online: req.body.online || user.online,
+                }).exec();
+
+                res.json({
+                    userId: updatedUser._id,
+                    message: "User and avatar updated successfully.",
+                });
             }
         } else {
             res.status(403).json({
