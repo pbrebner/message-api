@@ -86,29 +86,29 @@ exports.createChannel = [
                     newChannel: false,
                     message: "Redirecting to Existing Channel.",
                 });
+            } else {
+                // If channel doesn't already exist
+                const channel = new Channel({
+                    title: req.body.title || "",
+                    users: userList,
+                });
+
+                await channel.save();
+
+                //Add channel to all users
+                userList.forEach(async (element) => {
+                    await User.findByIdAndUpdate(element, {
+                        $push: { channels: channel },
+                    }).exec();
+                });
+
+                // Inform client channel was saved
+                res.json({
+                    channelId: channel._id,
+                    newChannel: true,
+                    message: "Channel successfully created.",
+                });
             }
-
-            // If channel doesn't already exist
-            const channel = new Channel({
-                title: req.body.title || "",
-                users: userList,
-            });
-
-            await channel.save();
-
-            //Add channel to all users
-            userList.forEach(async (element) => {
-                await User.findByIdAndUpdate(element, {
-                    $push: { channels: channel },
-                }).exec();
-            });
-
-            // Inform client channel was saved
-            res.json({
-                channelId: channel._id,
-                newChannel: true,
-                message: "Channel successfully created.",
-            });
         }
     }),
 ];
