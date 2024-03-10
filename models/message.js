@@ -3,6 +3,10 @@ const Schema = mongoose.Schema;
 
 const messageSchema = new Schema({
     content: { type: String, required: true },
+    image: {
+        type: String,
+        default: "",
+    },
     likes: { type: Number, default: 0 },
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     channel: { type: Schema.Types.ObjectId, ref: "Channel", required: true },

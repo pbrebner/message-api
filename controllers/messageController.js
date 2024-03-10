@@ -1,9 +1,20 @@
 const Message = require("../models/message");
 const Channel = require("../models/channel");
-const { getSignedURL } = require("../controllers/s3Controller");
+const {
+    uploadFileS3,
+    getSignedURL,
+    deleteFileS3,
+} = require("../controllers/s3Controller");
 
 const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
+
+// Set up multer to handle file uploads
+const multer = require("multer");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+const sharp = require("sharp");
 
 exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
     const channel = await Channel.findById(
@@ -14,15 +25,19 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
     if (channel.users.includes(req.user._id)) {
         const messages = await Message.find(
             { channel: req.params.channelId },
-            "content user likes timeStamp"
+            "content image user likes timeStamp"
         )
             .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
             .sort({ timeStamp: 1 })
             .lean()
             .exec();
 
-        // Get url for uers avatar image
+        // Get url for for message images
         for (let message of messages) {
+            if (message.image != "") {
+                message["imageURL"] = await getSignedUrl(message.image);
+            }
+
             if (message.user.avatar == "") {
                 message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
@@ -38,52 +53,85 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
     }
 });
 
-// TODO: Content can only be text right now. Need to adjust based on model (Images etc.)
-// Maybe create an image attribute to message that can be added.
 exports.createMessage = [
-    body("content", "Message has to be between 1 and 600 characters.")
+    upload.single("image"),
+    body("content", "Message text can't be more than 600 characters.")
         .trim()
-        .isLength({ min: 1, max: 600 })
+        .optional()
+        .isLength({ max: 600 })
         .blacklist("<>"),
+    body("image")
+        .trim()
+        .optional()
+        .custom(async (value, { req }) => {
+            const file = req.file;
+            const allowedFileTypes = [
+                "image/png",
+                "image/jpeg",
+                "image/jpg",
+                "image/gif",
+            ];
+            const allowedSize = 5;
 
+            if (!allowedFileTypes.includes(file.mimetype)) {
+                throw new Error(
+                    "You can only send png, jpeg, jpg or gif file formats."
+                );
+            }
+
+            if (file.size / (1024 * 1024) > allowedSize) {
+                throw new Error("File size is too large. 5MB maximum.");
+            }
+        }),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
+        const channel = await Channel.findById(
+            req.params.channelId,
+            "users"
+        ).exec();
+
         if (!errors.isEmpty()) {
             res.status(400).json({
-                content: req.body.content,
                 errors: errors.array(),
             });
             return;
+        } else if (!channel.users.includes(req.user._id)) {
+            res.status(403).json({
+                error: "Not authorized for this action.",
+            });
+            return;
         } else {
-            const channel = await Channel.findById(
-                req.params.channelId,
-                "users"
-            ).exec();
+            let fileName = "";
 
-            if (channel.users.includes(req.user._id)) {
-                const message = new Message({
-                    content: req.body.content,
-                    user: req.user._id,
-                    channel: req.params.channelId,
-                });
+            if (req.file) {
+                // Change the size of the image
+                const fileBuffer = await sharp(req.file.buffer)
+                    .resize({ height: 1080, width: 1080, fit: "contain" })
+                    .toBuffer();
 
-                await message.save();
-
-                //Add message to channel
-                await Channel.findByIdAndUpdate(req.params.channelId, {
-                    $push: { messages: message },
-                }).exec();
-
-                res.json({
-                    messageId: message._id,
-                    message: "Message saved successfully.",
-                });
-            } else {
-                res.status(403).json({
-                    error: "Not authorized for this action.",
-                });
+                fileName = await uploadFileS3(req.file, fileBuffer);
             }
+
+            // Create Message
+            const message = new Message({
+                content: req.body.content || "",
+                image: fileName,
+                user: req.user._id,
+                channel: req.params.channelId,
+            });
+
+            await message.save();
+
+            //Add message to channel
+            await Channel.findByIdAndUpdate(req.params.channelId, {
+                $push: { messages: message },
+            }).exec();
+
+            res.json({
+                messageId: message._id,
+                message: "Message saved successfully.",
+            });
         }
     }),
 ];
@@ -97,11 +145,15 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     if (!message) {
         return res.status(404).json({ error: "No entries found in database" });
     } else {
+        if (message.image != "") {
+            message["imageURL"] = await getSignedUrl(message.image);
+        }
+
         // Get url for uers avatar image
         if (message.user.avatar == "") {
             message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
         } else {
-            message.user["avatarURL"] = await getSignedURL(user.avatar);
+            message.user["avatarURL"] = await getSignedURL(message.user.avatar);
         }
 
         res.json(message);
@@ -145,6 +197,11 @@ exports.deleteMessage = asyncHandler(async (req, res, next) => {
         const message = await Message.findByIdAndDelete(
             req.params.messageId
         ).exec();
+
+        // Delete image off s3 bucket if not empty
+        if (message.image != "") {
+            await deleteFileS3(message.image);
+        }
 
         await Channel.findByIdAndUpdate(req.params.channelId, {
             $pull: { messages: message._id },
