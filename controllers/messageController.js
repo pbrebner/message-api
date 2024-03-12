@@ -24,7 +24,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
 
     if (channel.users.includes(req.user._id)) {
         const messages = await Message.find(
-            { channel: req.params.channelId },
+            { channel: req.params.channelId, posted: true },
             "content image inResponseTo likes user timeStamp"
         )
             .populate({
@@ -118,6 +118,7 @@ exports.createMessage = [
             return;
         } else {
             let fileName = "";
+            let posted = true;
 
             if (req.file) {
                 // Change the size of the image
@@ -126,6 +127,7 @@ exports.createMessage = [
                     .toBuffer();
 
                 fileName = await uploadFileS3(req.file, fileBuffer);
+                posted = false;
             }
 
             if (req.body.inResponseTo) {
@@ -134,6 +136,7 @@ exports.createMessage = [
                     content: req.body.content || "",
                     image: fileName,
                     inResponseTo: req.body.inResponseTo,
+                    posted: posted,
                     user: req.user._id,
                     channel: req.params.channelId,
                 });
@@ -154,6 +157,7 @@ exports.createMessage = [
                 const message = new Message({
                     content: req.body.content || "",
                     image: fileName,
+                    posted: posted,
                     user: req.user._id,
                     channel: req.params.channelId,
                 });
@@ -203,19 +207,44 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     }
 });
 
-// Only likes are capable of being updated at the moment.
 exports.updateMessage = [
-    body("likes").optional(),
+    body("content", "Message text can't be more than 600 characters.")
+        .trim()
+        .optional()
+        .isLength({ max: 600 })
+        .blacklist("<>"),
+    body("likes", "Invalid input.").optional().isNumeric(),
     asyncHandler(async (req, res, next) => {
-        const message = await Message.findByIdAndUpdate(req.params.messageId, {
-            likes: req.body.likes,
-        }).exec();
+        const errors = validationResult(req);
 
-        if (!message) {
-            return res.status(404).json({
+        const channel = await Channel.findById(
+            req.params.channelId,
+            "users"
+        ).exec();
+        const message = await Message.findById(req.params.messageId).exec();
+
+        if (!errors.isEmpty()) {
+            res.status(400).json({
+                errors: errors.array(),
+            });
+            return;
+        } else if (!channel.users.includes(req.user._id)) {
+            res.status(403).json({
+                error: "Not authorized for this action.",
+            });
+            return;
+        } else if (!message) {
+            res.status(404).json({
                 error: `No message with id ${req.params.messageId} exists.`,
             });
+            return;
         } else {
+            await Message.findByIdAndUpdate(req.params.messageId, {
+                content: req.body.content || message.content,
+                likes: req.body.likes || message.likes,
+                posted: true,
+            }).exec();
+
             res.json({
                 messageId: message._id,
                 message: "Message likes updated successfully.",
