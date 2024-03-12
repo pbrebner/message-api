@@ -7,6 +7,7 @@ const messageSchema = new Schema({
         type: String,
         default: "",
     },
+    inResponseTo: { type: Schema.Types.ObjectId, ref: "Message" },
     likes: { type: Number, default: 0 },
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     channel: { type: Schema.Types.ObjectId, ref: "Channel", required: true },

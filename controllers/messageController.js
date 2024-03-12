@@ -25,8 +25,13 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
     if (channel.users.includes(req.user._id)) {
         const messages = await Message.find(
             { channel: req.params.channelId },
-            "content image user likes timeStamp"
+            "content image inResponseTo likes user timeStamp"
         )
+            .populate({
+                path: "inResponseTo",
+                select: "content",
+                populate: { path: "user", select: "name" },
+            })
             .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
             .sort({ timeStamp: 1 })
             .lean()
@@ -63,7 +68,7 @@ exports.createMessage = [
     body("image")
         .trim()
         .optional()
-        .custom(async (value, { req }) => {
+        .custom((value, { req }) => {
             const file = req.file;
             const allowedFileTypes = [
                 "image/png",
@@ -71,7 +76,7 @@ exports.createMessage = [
                 "image/jpg",
                 "image/gif",
             ];
-            const allowedSize = 5;
+            const allowedSize = 10;
 
             if (!allowedFileTypes.includes(file.mimetype)) {
                 throw new Error(
@@ -81,6 +86,16 @@ exports.createMessage = [
 
             if (file.size / (1024 * 1024) > allowedSize) {
                 throw new Error("File size is too large. 5MB maximum.");
+            }
+        }),
+    body("inResponseTo")
+        .trim()
+        .optional()
+        .custom(async (value) => {
+            const message = await Message.findById(value);
+
+            if (!message) {
+                throw new Error("Invalid reply target.");
             }
         }),
     asyncHandler(async (req, res, next) => {
@@ -113,31 +128,59 @@ exports.createMessage = [
                 fileName = await uploadFileS3(req.file, fileBuffer);
             }
 
-            // Create Message
-            const message = new Message({
-                content: req.body.content || "",
-                image: fileName,
-                user: req.user._id,
-                channel: req.params.channelId,
-            });
+            if (req.body.inResponseTo) {
+                // Create Message
+                const message = new Message({
+                    content: req.body.content || "",
+                    image: fileName,
+                    inResponseTo: req.body.inResponseTo,
+                    user: req.user._id,
+                    channel: req.params.channelId,
+                });
 
-            await message.save();
+                await message.save();
 
-            //Add message to channel
-            await Channel.findByIdAndUpdate(req.params.channelId, {
-                $push: { messages: message },
-            }).exec();
+                //Add message to channel
+                await Channel.findByIdAndUpdate(req.params.channelId, {
+                    $push: { messages: message },
+                }).exec();
 
-            res.json({
-                messageId: message._id,
-                message: "Message saved successfully.",
-            });
+                res.json({
+                    messageId: message._id,
+                    message: "Message saved successfully.",
+                });
+            } else {
+                // Create Message
+                const message = new Message({
+                    content: req.body.content || "",
+                    image: fileName,
+                    user: req.user._id,
+                    channel: req.params.channelId,
+                });
+
+                await message.save();
+
+                //Add message to channel
+                await Channel.findByIdAndUpdate(req.params.channelId, {
+                    $push: { messages: message },
+                }).exec();
+
+                res.json({
+                    messageId: message._id,
+                    message: "Message saved successfully.",
+                });
+            }
         }
     }),
 ];
 
 exports.getMessage = asyncHandler(async (req, res, next) => {
     const message = await Message.findOne({ _id: req.params.messageId })
+        .populate({
+            path: "inResponseTo",
+            select: "content",
+            populate: { path: "user", select: "name" },
+        })
         .populate("user", { name: 1, avatar: 1, timeStamp: 1 })
         .lean()
         .exec();
@@ -146,7 +189,7 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
         return res.status(404).json({ error: "No entries found in database" });
     } else {
         if (message.image != "") {
-            message["imageURL"] = await getSignedUrl(message.image);
+            message["imageURL"] = await getSignedURL(message.image);
         }
 
         // Get url for uers avatar image
