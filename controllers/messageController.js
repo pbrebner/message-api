@@ -40,7 +40,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
         // Get url for for message images
         for (let message of messages) {
             if (message.image != "") {
-                message["imageURL"] = await getSignedUrl(message.image);
+                message["imageURL"] = await getSignedURL(message.image);
             }
 
             if (message.user.avatar == "") {
