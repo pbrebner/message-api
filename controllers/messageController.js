@@ -247,7 +247,7 @@ exports.updateMessage = [
 
             res.json({
                 messageId: message._id,
-                message: "Message likes updated successfully.",
+                message: "Message updated successfully.",
             });
         }
     }),
