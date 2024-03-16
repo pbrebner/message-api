@@ -118,8 +118,12 @@ exports.createMessage = [
             return;
         } else {
             let fileName = "";
+            let messageImageURL = "";
             let posted = true;
 
+            // Handles resizing the image and uploading to S3
+            // Sets posted to false in order to create new message but not post
+            // Populates messageImageURL to pass to front-end for image preview
             if (req.file) {
                 // Change the size of the image
                 const fileBuffer = await sharp(req.file.buffer)
@@ -127,6 +131,7 @@ exports.createMessage = [
                     .toBuffer();
 
                 fileName = await uploadFileS3(req.file, fileBuffer);
+                messageImageURL = await getSignedURL(fileName);
                 posted = false;
             }
 
@@ -150,6 +155,7 @@ exports.createMessage = [
 
                 res.json({
                     messageId: message._id,
+                    messageImageURL: messageImageURL,
                     message: "Message saved successfully.",
                 });
             } else {
@@ -171,6 +177,7 @@ exports.createMessage = [
 
                 res.json({
                     messageId: message._id,
+                    messageImageURL: messageImageURL,
                     message: "Message saved successfully.",
                 });
             }
@@ -213,6 +220,16 @@ exports.updateMessage = [
         .optional()
         .isLength({ max: 600 })
         .blacklist("<>"),
+    body("inResponseTo")
+        .trim()
+        .optional()
+        .custom(async (value) => {
+            const message = await Message.findById(value);
+
+            if (!message) {
+                throw new Error("Invalid reply target.");
+            }
+        }),
     body("likes", "Invalid input.").optional().isNumeric(),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
@@ -239,11 +256,20 @@ exports.updateMessage = [
             });
             return;
         } else {
-            await Message.findByIdAndUpdate(req.params.messageId, {
-                content: req.body.content || message.content,
-                likes: req.body.likes || message.likes,
-                posted: true,
-            }).exec();
+            if (req.body.inResponseTo) {
+                await Message.findByIdAndUpdate(req.params.messageId, {
+                    content: req.body.content || message.content,
+                    inResponseTo: req.body.inResponseTo,
+                    likes: req.body.likes || message.likes,
+                    posted: true,
+                }).exec();
+            } else {
+                await Message.findByIdAndUpdate(req.params.messageId, {
+                    content: req.body.content || message.content,
+                    likes: req.body.likes || message.likes,
+                    posted: true,
+                }).exec();
+            }
 
             res.json({
                 messageId: message._id,
