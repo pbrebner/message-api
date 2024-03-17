@@ -106,20 +106,30 @@ exports.createMessage = [
             "users"
         ).exec();
 
-        if (!errors.isEmpty()) {
-            res.status(400).json({
-                errors: errors.array(),
-            });
-            return;
-        } else if (!channel.users.includes(req.user._id)) {
+        if (!channel.users.includes(req.user._id)) {
             res.status(403).json({
                 error: "Not authorized for this action.",
             });
             return;
+        } else if (!errors.isEmpty()) {
+            res.status(400).json({
+                errors: errors.array(),
+            });
+            return;
+        } else if (!req.body.content && !req.body.image) {
+            res.status(400).json({
+                errors: ["Can't send empty message."],
+            });
+            return;
         } else {
+            let content = "";
             let fileName = "";
             let messageImageURL = "";
             let posted = true;
+
+            if (req.body.content) {
+                content = req.body.content;
+            }
 
             // Handles resizing the image and uploading to S3
             // Sets posted to false in order to create new message but not post
@@ -138,7 +148,7 @@ exports.createMessage = [
             if (req.body.inResponseTo) {
                 // Create Message
                 const message = new Message({
-                    content: req.body.content || "",
+                    content: content,
                     image: fileName,
                     inResponseTo: req.body.inResponseTo,
                     posted: posted,
@@ -161,7 +171,7 @@ exports.createMessage = [
             } else {
                 // Create Message
                 const message = new Message({
-                    content: req.body.content || "",
+                    content: content,
                     image: fileName,
                     posted: posted,
                     user: req.user._id,
@@ -240,12 +250,7 @@ exports.updateMessage = [
         ).exec();
         const message = await Message.findById(req.params.messageId).exec();
 
-        if (!errors.isEmpty()) {
-            res.status(400).json({
-                errors: errors.array(),
-            });
-            return;
-        } else if (!channel.users.includes(req.user._id)) {
+        if (!channel.users.includes(req.user._id)) {
             res.status(403).json({
                 error: "Not authorized for this action.",
             });
@@ -255,17 +260,34 @@ exports.updateMessage = [
                 error: `No message with id ${req.params.messageId} exists.`,
             });
             return;
+        } else if (!errors.isEmpty()) {
+            res.status(400).json({
+                errors: errors.array(),
+            });
+            return;
+        } else if (!req.body.content && !message.image) {
+            res.status(400).json({
+                errors: ["Can't send empty message."],
+            });
+            return;
         } else {
+            let content = "";
+            if (req.body.content == "" || req.body.content) {
+                content = req.body.content;
+            } else {
+                content = message.content;
+            }
+
             if (req.body.inResponseTo) {
                 await Message.findByIdAndUpdate(req.params.messageId, {
-                    content: req.body.content || message.content,
+                    content: content,
                     inResponseTo: req.body.inResponseTo,
                     likes: req.body.likes || message.likes,
                     posted: true,
                 }).exec();
             } else {
                 await Message.findByIdAndUpdate(req.params.messageId, {
-                    content: req.body.content || message.content,
+                    content: content,
                     likes: req.body.likes || message.likes,
                     posted: true,
                 }).exec();
