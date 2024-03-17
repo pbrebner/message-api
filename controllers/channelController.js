@@ -203,13 +203,21 @@ exports.updateChannel = [
 
                     if (userList.length > 6) {
                         return res.status(400).json({
-                            errors: ["Can't have more than 6 channel users."],
+                            errors: [
+                                {
+                                    msg: "Can't have more than 6 channel users.",
+                                },
+                            ],
                         });
                     }
 
                     if (userList.length < 2) {
                         return res.status(400).json({
-                            errors: ["Can't have less than 2 channel users."],
+                            errors: [
+                                {
+                                    msg: "Can't have less than 2 channel users.",
+                                },
+                            ],
                         });
                     }
                 }

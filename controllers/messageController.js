@@ -116,9 +116,9 @@ exports.createMessage = [
                 errors: errors.array(),
             });
             return;
-        } else if (!req.body.content && !req.body.image) {
+        } else if (!req.body.content && !req.file) {
             res.status(400).json({
-                errors: ["Can't send empty message."],
+                errors: [{ msg: "Can't send empty message." }],
             });
             return;
         } else {
@@ -267,7 +267,7 @@ exports.updateMessage = [
             return;
         } else if (!req.body.content && !message.image) {
             res.status(400).json({
-                errors: ["Can't send empty message."],
+                errors: [{ msg: "Can't send empty message." }],
             });
             return;
         } else {
