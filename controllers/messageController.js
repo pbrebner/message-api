@@ -265,17 +265,15 @@ exports.updateMessage = [
                 errors: errors.array(),
             });
             return;
-        } else if (!req.body.content && !message.image) {
+        } else if (!req.body.content && !message.content && !message.image) {
             res.status(400).json({
                 errors: [{ msg: "Can't send empty message." }],
             });
             return;
         } else {
             let content = "";
-            if (req.body.content == "" || req.body.content) {
+            if (req.body.content) {
                 content = req.body.content;
-            } else {
-                content = message.content;
             }
 
             if (req.body.inResponseTo) {
