@@ -249,7 +249,7 @@ exports.updateUser = [
                     name: req.body.name || user.name,
                     email: req.body.email || user.email,
                     bio: req.body.bio || user.bio,
-                    avatar: fileName,
+                    avatar: fileName || user.avatar,
                     online: req.body.online || user.online,
                 }).exec();
 
