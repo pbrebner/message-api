@@ -49,7 +49,7 @@ exports.getSignedURL = async (fileName) => {
     };
 
     const command = new GetObjectCommand(getObjectParams);
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 60 });
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 36000 });
 
     return url;
 };
