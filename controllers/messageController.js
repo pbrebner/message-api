@@ -82,9 +82,7 @@ exports.createMessage = [
                 throw new Error(
                     "You can only send png, jpeg, jpg or gif file formats."
                 );
-            }
-
-            if (file.size / (1024 * 1024) > allowedSize) {
+            } else if (file.size / (1024 * 1024) > allowedSize) {
                 throw new Error("File size is too large. 5MB maximum.");
             }
         }),
@@ -137,7 +135,7 @@ exports.createMessage = [
             if (req.file) {
                 // Change the size of the image
                 const fileBuffer = await sharp(req.file.buffer)
-                    .resize({ height: 1080, width: 1080, fit: "contain" })
+                    .resize({ height: 1440, width: 2560, fit: "contain" })
                     .toBuffer();
 
                 fileName = await uploadFileS3(req.file, fileBuffer);
