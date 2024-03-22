@@ -134,11 +134,11 @@ exports.createMessage = [
             // Populates messageImageURL to pass to front-end for image preview
             if (req.file) {
                 // Change the size of the image
-                const fileBuffer = await sharp(req.file.buffer)
-                    .resize({ height: 1440, width: 2560, fit: "contain" })
-                    .toBuffer();
+                //const fileBuffer = await sharp(req.file.buffer)
+                //    .resize({ height: 1440, width: 2560, fit: "contain" })
+                //    .toBuffer();
 
-                fileName = await uploadFileS3(req.file, fileBuffer);
+                fileName = await uploadFileS3(req.file, req.file.buffer);
                 messageImageURL = await getSignedURL(fileName);
                 posted = false;
             }
