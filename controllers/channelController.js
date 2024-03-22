@@ -143,24 +143,22 @@ exports.updateChannel = [
         .blacklist("<>"),
     body("users", "Can't update more than one channel user.")
         .isArray({ max: 1 })
-        .custom(async (users, { req }) => {
-            users.forEach(async (value) => {
-                const user = await User.find({ name: value }).exec();
-                const friend = await Friend.find({
-                    user: req.user._id,
-                    targetUser: user._id || "",
-                }).exec();
+        .optional(),
+    body("users.*")
+        .custom(async (value, { req }) => {
+            const user = await User.findById(value).exec();
+            const friend = await Friend.findOne({
+                user: req.user._id,
+                targetUser: user && user._id,
+            }).exec();
 
-                if (!user) {
-                    throw new Error(`No user with name ${value} exists.`);
-                } else if (!friend || friend.status != 3) {
-                    throw new Error(
-                        "You can only send Direct Messages to friends."
-                    );
-                } else {
-                    req.body.userUpdate = user._id;
-                }
-            });
+            if (!user) {
+                throw new Error(`User does not exist.`);
+            } else if (!friend || friend.status != 3) {
+                throw new Error(
+                    `You can only send Direct Messages with friends.`
+                );
+            }
         })
         .optional(),
     asyncHandler(async (req, res, next) => {
@@ -189,12 +187,12 @@ exports.updateChannel = [
 
                 // Prepares the userList and sends status 400 errors if userList is too long or short
                 if (req.body.users) {
-                    if (userList.includes(req.body.userUpdate)) {
+                    if (userList.includes(req.body.users[0])) {
                         userList = userList.filter(
-                            (user) => user != req.body.userUpdate
+                            (user) => user != req.body.users[0]
                         );
                     } else {
-                        userList.push(req.body.userUpdate);
+                        userList.push(req.body.users[0]);
                     }
 
                     if (userList.length > 6) {
