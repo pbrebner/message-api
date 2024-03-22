@@ -36,30 +36,22 @@ exports.createChannel = [
         .isLength({ max: 30 })
         .optional()
         .blacklist("<>"),
-    body("users", "Must be between 1 and 5 users.")
-        .isArray({ min: 1, max: 5 })
-        .custom(async (users, { req }) => {
-            req.body.userList = [];
+    body("users", "Must be between 1 and 5 users.").isArray({ min: 1, max: 5 }),
+    body("users.*").custom(async (value, { req }) => {
+        const user = await User.findById(value).exec();
+        const friend = await Friend.findOne({
+            user: req.user._id,
+            targetUser: user && user._id,
+        }).exec();
 
-            users.forEach(async (value) => {
-                const user = await User.find({ name: value }).exec();
-                const friend = await Friend.find({
-                    user: req.user._id,
-                    targetUser: user._id || "",
-                }).exec();
-
-                if (!user) {
-                    throw new Error(`No user with name ${value} exists.`);
-                } else if (!friend || friend.status != 3) {
-                    throw new Error(
-                        `You can only initiate Direct Messages with friends. Please remove ${value}.`
-                    );
-                } else {
-                    req.body.userList.push(user._id);
-                }
-            });
-            req.body.userList.push(req.user._id);
-        }),
+        if (!user) {
+            throw new Error(`User does not exist.`);
+        } else if (!friend || friend.status != 3) {
+            throw new Error(
+                `You can only initiate Direct Messages with friends.`
+            );
+        }
+    }),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
@@ -69,10 +61,13 @@ exports.createChannel = [
                 errors: errors.array(),
             });
         } else {
-            const userList = req.body.userList;
+            // Get userList and add current user
+            const userList = req.body.users;
+            userList.push(req.user._id);
 
             // Check if channel with these users already exists
-            const channelCheck = await Channel.find({
+            // TODO: Check if channel title is different
+            const channelCheck = await Channel.findOne({
                 $and: [
                     { users: { $all: userList } },
                     { users: { $size: userList.length } },
@@ -81,11 +76,12 @@ exports.createChannel = [
 
             if (channelCheck) {
                 // Inform client Channel already Exists
-                return res.json({
+                res.json({
                     channelId: channelCheck._id,
                     newChannel: false,
                     message: "Redirecting to Existing Channel.",
                 });
+                return;
             } else {
                 // If channel doesn't already exist
                 const channel = new Channel({
