@@ -121,6 +121,15 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         if (!user) {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
+        } else if (user.email == "sarawilson@example.com") {
+            // Get url for avatar image
+            if (user.avatar == "") {
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
+            } else {
+                user["avatarURL"] = await getSignedURL(user.avatar);
+            }
+
+            res.json({ user: user, guestProfile: true, usersProfile: true });
         } else {
             // Get url for avatar image
             if (user.avatar == "") {
@@ -143,15 +152,6 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         if (!user) {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
-        } else if (user.email == "sarawilson@example.com") {
-            // Get url for avatar image
-            if (user.avatar == "") {
-                user["avatarURL"] = process.env.DEFAULT_AVATAR;
-            } else {
-                user["avatarURL"] = await getSignedURL(user.avatar);
-            }
-
-            res.json({ user: user, guestProfile: true, usersProfile: false });
         } else {
             // Get url for avatar image
             if (user.avatar == "") {
