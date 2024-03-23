@@ -276,14 +276,14 @@ exports.updateMessage = [
 
             if (req.body.inResponseTo) {
                 await Message.findByIdAndUpdate(req.params.messageId, {
-                    content: content,
+                    content: content || message.content,
                     inResponseTo: req.body.inResponseTo,
                     likes: req.body.likes || message.likes,
                     posted: true,
                 }).exec();
             } else {
                 await Message.findByIdAndUpdate(req.params.messageId, {
-                    content: content,
+                    content: content || message.content,
                     likes: req.body.likes || message.likes,
                     posted: true,
                 }).exec();
