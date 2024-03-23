@@ -129,7 +129,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
                 user["avatarURL"] = await getSignedURL(user.avatar);
             }
 
-            res.json({ user: user, usersProfile: true });
+            res.json({ user: user, guestProfile: false, usersProfile: true });
         }
     } else {
         // Get the other users info from the parameters
@@ -143,6 +143,15 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         if (!user) {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
+        } else if (user.email == "sarawilson@example.com") {
+            // Get url for avatar image
+            if (user.avatar == "") {
+                user["avatarURL"] = process.env.DEFAULT_AVATAR;
+            } else {
+                user["avatarURL"] = await getSignedURL(user.avatar);
+            }
+
+            res.json({ user: user, guestProfile: true, usersProfile: false });
         } else {
             // Get url for avatar image
             if (user.avatar == "") {
@@ -151,7 +160,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
                 user["avatarURL"] = await getSignedURL(user.avatar);
             }
 
-            res.json({ user: user, usersProfile: false });
+            res.json({ user: user, guestProfile: false, usersProfile: false });
         }
     }
 });
@@ -242,19 +251,41 @@ exports.updateUser = [
                     fileName = await uploadFileS3(req.file, fileBuffer);
                 }
 
-                // Update User
-                const updatedUser = await User.findByIdAndUpdate(req.user._id, {
-                    name: req.body.name || user.name,
-                    email: req.body.email || user.email,
-                    bio: req.body.bio || user.bio,
-                    avatar: fileName || user.avatar,
-                    online: req.body.online || user.online,
-                }).exec();
+                if (user.email == "sarawilson@example.com") {
+                    // Update Guest User (except Email)
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user._id,
+                        {
+                            name: req.body.name || user.name,
+                            email: user.email,
+                            bio: req.body.bio || user.bio,
+                            avatar: fileName || user.avatar,
+                            online: req.body.online || user.online,
+                        }
+                    ).exec();
 
-                res.json({
-                    userId: updatedUser._id,
-                    message: "User and avatar updated successfully.",
-                });
+                    res.json({
+                        userId: updatedUser._id,
+                        message: "User and avatar updated successfully.",
+                    });
+                } else {
+                    // Update User
+                    const updatedUser = await User.findByIdAndUpdate(
+                        req.user._id,
+                        {
+                            name: req.body.name || user.name,
+                            email: req.body.email || user.email,
+                            bio: req.body.bio || user.bio,
+                            avatar: fileName || user.avatar,
+                            online: req.body.online || user.online,
+                        }
+                    ).exec();
+
+                    res.json({
+                        userId: updatedUser._id,
+                        message: "User and avatar updated successfully.",
+                    });
+                }
             }
         } else {
             res.status(403).json({
@@ -274,6 +305,10 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
             return res
                 .status(404)
                 .json({ error: `No user with id ${req.user._id} exists` });
+        } else if (user.email == "sarawilson@example.com") {
+            return res
+                .status(405)
+                .json({ error: `Deleting guest account not allowed` });
         } else {
             // Delete avatar off s3 bucket if not default
             if (user.avatar != "") {
