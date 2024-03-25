@@ -154,7 +154,7 @@ exports.login = (req, res) => {
                 const token = jwt.sign(
                     { user: user },
                     process.env.ACCESS_TOKEN_SECRET,
-                    { expiresIn: "20m" }
+                    { expiresIn: "1d" }
                 );
 
                 //Create Refresh token
