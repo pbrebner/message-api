@@ -1,4 +1,4 @@
-# Message API [In Developement]
+# Message API
 
 [Link to Client](https://github.com/pbrebner/message-client)
 
