@@ -6,6 +6,7 @@ const path = require("path");
 const passport = require("passport");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
+const setSocketServer = require("./socketServer");
 const cors = require("cors");
 
 const indexRouter = require("./routes/index");
@@ -23,6 +24,9 @@ main().catch((err) => console.log(err));
 async function main() {
     await mongoose.connect(mongoDB);
 }
+
+// Get server and set up socket io
+const server = setSocketServer(app);
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
@@ -55,4 +59,4 @@ app.use(function (err, req, res, next) {
     //res.render("error");
 });
 
-module.exports = app;
+module.exports = { app: app, server: server };
