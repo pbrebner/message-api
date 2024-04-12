@@ -20,7 +20,10 @@ const upload = multer({ storage: storage });
 const sharp = require("sharp");
 
 exports.getAllUsers = asyncHandler(async (req, res, next) => {
-    const users = await User.find({}, "name avatar memberStatus timeStamp")
+    const users = await User.find(
+        {},
+        "name avatar memberStatus online timeStamp"
+    )
         .lean()
         .exec();
 
@@ -111,7 +114,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         // Get the users info of the supplied access token
         const user = await User.findOne(
             { _id: req.user._id },
-            "name email bio avatar memberStatus friends channels timeStamp"
+            "name email bio avatar memberStatus friends channels online timeStamp"
         )
             .populate("friends", { targetUser: 1, status: 1, timeStamp: 1 })
             .populate("channels")
@@ -144,7 +147,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         // Get the other users info from the parameters
         const user = await User.findOne(
             { _id: req.params.userId },
-            "name bio avatar memberStatus timeStamp"
+            "name bio avatar memberStatus online timeStamp"
         )
             .lean()
             .exec();
