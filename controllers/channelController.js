@@ -101,6 +101,7 @@ exports.createChannel = [
                 // Inform client channel was saved
                 res.json({
                     channelId: channel._id,
+                    channelUsers: channel.users,
                     newChannel: true,
                     message: "Channel successfully created.",
                 });
@@ -224,10 +225,18 @@ exports.updateChannel = [
                     }
                 ).exec();
 
-                res.json({
-                    message: "Channel updated successfully.",
-                    channelId: updatedChannel._id,
-                });
+                if (req.body.users) {
+                    res.json({
+                        message: "Channel updated successfully.",
+                        updatedUser: req.body.users[0],
+                        channelId: updatedChannel._id,
+                    });
+                } else {
+                    res.json({
+                        message: "Channel updated successfully.",
+                        channelId: updatedChannel._id,
+                    });
+                }
             }
         } else {
             res.status(403).json({
