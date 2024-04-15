@@ -2,6 +2,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const User = require("./models/user");
+const Friend = require("./models/friend");
 
 function setSocketServer(app) {
     // Create http server
@@ -18,6 +19,27 @@ function setSocketServer(app) {
     io.on("connection", (socket) => {
         console.log("A user connected");
 
+        // On socket disconnect
+        socket.on("disconnect", async () => {
+            console.log("User disconnected");
+
+            if (socket.data.userId) {
+                await User.findByIdAndUpdate(socket.data.userId, {
+                    online: false,
+                });
+
+                // Emit to friends that you are offline
+                const friends = await Friend.find({ user: data.userId });
+                if (friends.length) {
+                    friends.forEach((friend) => {
+                        io.to(friend.targetUser.valueOf()).emit(
+                            "receiveFriendOnline"
+                        );
+                    });
+                }
+            }
+        });
+
         // Sets user status to online
         socket.on("online", async (data) => {
             console.log("User Online");
@@ -26,32 +48,40 @@ function setSocketServer(app) {
             await User.findByIdAndUpdate(data.userId, { online: true });
             socket.join(data.userId);
 
-            // TODO: Maybe create room with all friends instead to emit to
             io.to(data.userId).emit("receiveOnline");
-            console.log(socket.rooms);
+
+            // Emit to friends that you are online
+            const friends = await Friend.find({ user: data.userId });
+            if (friends.length) {
+                friends.forEach((friend) => {
+                    io.to(friend.targetUser.valueOf()).emit(
+                        "receiveFriendOnline"
+                    );
+                });
+            }
         });
 
         // Sets user status to offline
         socket.on("offline", async (data) => {
             console.log("User Offline");
             await User.findByIdAndUpdate(data.userId, { online: false });
-            socket.leave(data.userId);
-            console.log(socket.rooms);
-        });
 
-        // On socket disconnect
-        socket.on("disconnect", async () => {
-            console.log("User disconnected");
-            await User.findByIdAndUpdate(socket.data.userId, { online: false });
-            socket.leave(socket.data.userId);
-            console.log(socket.rooms);
-        });
+            // Emit to friends that you are offline
+            const friends = await Friend.find({ user: data.userId });
+            if (friends.length) {
+                friends.forEach((friend) => {
+                    io.to(friend.targetUser.valueOf()).emit(
+                        "receiveFriendOnline"
+                    );
+                });
+            }
 
-        // Join Room (channel._id)
-        socket.on("joinRoom", (data) => {
-            socket.join(data.room);
-            console.log(`Joined Room ${data.room}`);
-            console.log(socket.rooms);
+            // Leave all rooms
+            socket.rooms.forEach((room) => {
+                if (room != socket.id) {
+                    socket.leave(room);
+                }
+            });
         });
 
         // Join Rooms to receive updates on channel
@@ -64,7 +94,18 @@ function setSocketServer(app) {
         socket.on("leaveRoom", (data) => {
             socket.leave(data.room);
             console.log(`Left Room ${data.room}`);
-            console.log(socket.rooms);
+        });
+
+        // Update Friends Status
+        socket.on("updateFriend", (data) => {
+            console.log("Updating friends");
+
+            // Send to friend
+            if (data.friends.length) {
+                data.friends.forEach((friendUserId) => {
+                    io.to(friendUserId).emit("receiveFriendUpdate");
+                });
+            }
         });
 
         // Create Channel
@@ -72,9 +113,11 @@ function setSocketServer(app) {
             console.log("Creating channel");
 
             // Emit to each user id
-            data.users.forEach((userId) => {
-                io.to(userId).emit("receiveChannelCreate");
-            });
+            if (data.users.length) {
+                data.users.forEach((userId) => {
+                    io.to(userId).emit("receiveChannelCreate");
+                });
+            }
         });
 
         // Update Channel
@@ -83,7 +126,7 @@ function setSocketServer(app) {
             io.to(data.room).emit("receiveChannelUpdate");
 
             // If adding new users
-            if (data.users) {
+            if (data.users && data.users.length) {
                 // Emit to each user id
                 data.users.forEach((userId) => {
                     io.to(userId).emit("receiveChannelCreate");
