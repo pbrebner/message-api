@@ -102,6 +102,7 @@ exports.createFriend = [
 
                 res.json({
                     friendId: friendRequester._id,
+                    targetUser: req.body.recipientId,
                     message: "Friend Request successfully sent.",
                 });
             }
@@ -170,6 +171,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
 
             res.json({
                 friendId: friendA._id,
+                targetUser: friendA.targetUser,
                 message: "Friend successfully updated.",
             });
         }
@@ -204,6 +206,7 @@ exports.deleteFriend = asyncHandler(async (req, res, next) => {
             res.json({
                 message: "Friend deleted successfully.",
                 friendId: friendA._id,
+                targetUser: friendA.targetUser,
             });
         }
     } else {
