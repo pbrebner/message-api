@@ -21,8 +21,6 @@ function setSocketServer(app) {
 
         // On socket disconnect
         socket.on("disconnect", async () => {
-            console.log("User disconnected");
-
             if (socket.data.userId) {
                 await User.findByIdAndUpdate(socket.data.userId, {
                     online: false,
@@ -42,7 +40,6 @@ function setSocketServer(app) {
 
         // Sets user status to online
         socket.on("online", async (data) => {
-            console.log("User Online");
             socket.data.userId = data.userId;
 
             await User.findByIdAndUpdate(data.userId, { online: true });
@@ -63,7 +60,6 @@ function setSocketServer(app) {
 
         // Sets user status to offline
         socket.on("offline", async (data) => {
-            console.log("User Offline");
             await User.findByIdAndUpdate(data.userId, { online: false });
 
             // Emit to friends that you are offline
@@ -87,19 +83,15 @@ function setSocketServer(app) {
         // Join Rooms to receive updates on channel
         socket.on("joinRooms", (data) => {
             socket.join(data.rooms);
-            console.log(socket.rooms);
         });
 
         // Leave Room (channel._id)
         socket.on("leaveRoom", (data) => {
             socket.leave(data.room);
-            console.log(`Left Room ${data.room}`);
         });
 
         // Update Friends Status
         socket.on("updateFriend", (data) => {
-            console.log("Updating friends");
-
             // Send to friend
             if (data.friends.length) {
                 data.friends.forEach((friendUserId) => {
@@ -110,8 +102,6 @@ function setSocketServer(app) {
 
         // Create Channel
         socket.on("createChannel", (data) => {
-            console.log("Creating channel");
-
             // Emit to each user id
             if (data.users.length) {
                 data.users.forEach((userId) => {
@@ -122,7 +112,6 @@ function setSocketServer(app) {
 
         // Update Channel
         socket.on("updateChannel", (data) => {
-            console.log("Updating channel");
             io.to(data.room).emit("receiveChannelUpdate");
 
             // If adding new users
@@ -136,7 +125,6 @@ function setSocketServer(app) {
 
         // Delete Channel
         socket.on("deleteChannel", (data) => {
-            console.log("Deleting channel");
             io.to(data.room).emit("receiveChannelUpdate");
 
             // Make all socket instances leave the specified room
@@ -145,7 +133,6 @@ function setSocketServer(app) {
 
         // Update Message (Send, Update, Delete) in Channel
         socket.on("updateMessage", (data) => {
-            console.log("Updating message");
             io.to(data.room).emit("receiveMessageUpdate");
         });
     });
