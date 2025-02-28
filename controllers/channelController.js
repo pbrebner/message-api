@@ -8,6 +8,7 @@ const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
 exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
+    // Finds the channels that contain the users id
     const channels = await Channel.find(
         { users: { $in: req.user._id } },
         "title users timeStamp"
@@ -16,7 +17,7 @@ exports.getAllUserChannels = asyncHandler(async (req, res, next) => {
         .lean()
         .exec();
 
-    // Get url for uers avatar image
+    // Get url for users avatar image
     for (let channel of channels) {
         for (let user of channel.users) {
             if (user.avatar == "") {
@@ -38,6 +39,7 @@ exports.createChannel = [
         .blacklist("<>"),
     body("users", "Must be between 1 and 5 users.").isArray({ min: 1, max: 5 }),
     body("users.*").custom(async (value, { req }) => {
+        // Checks each user in the list if they exist and our friends with current user
         const user = await User.findById(value).exec();
         const friend = await Friend.findOne({
             user: req.user._id,
@@ -66,7 +68,7 @@ exports.createChannel = [
             userList.push(req.user._id);
 
             // Check if channel with these users already exists
-            // TODO: Check if channel title is different
+            // TODO: CHECK IF CHANNEL TITLE IS DIFFERENT?
             const channelCheck = await Channel.findOne({
                 $and: [
                     { users: { $all: userList } },
@@ -76,12 +78,11 @@ exports.createChannel = [
 
             if (channelCheck) {
                 // Inform client Channel already Exists
-                res.json({
+                return res.json({
                     channelId: channelCheck._id,
                     newChannel: false,
                     message: "Redirecting to Existing Channel.",
                 });
-                return;
             } else {
                 // If channel doesn't already exist
                 const channel = new Channel({
@@ -99,6 +100,7 @@ exports.createChannel = [
                 });
 
                 // Inform client channel was saved
+                // Provide channel users so socket can emit to users from frontend
                 res.json({
                     channelId: channel._id,
                     channelUsers: channel.users,
@@ -147,6 +149,7 @@ exports.updateChannel = [
         .optional(),
     body("users.*")
         .custom(async (value, { req }) => {
+            // Checks each user in the list if they exist and our friends with current user
             const user = await User.findById(value).exec();
             const friend = await Friend.findOne({
                 user: req.user._id,
@@ -188,6 +191,7 @@ exports.updateChannel = [
 
                 // Prepares the userList and sends status 400 errors if userList is too long or short
                 if (req.body.users) {
+                    // Remove or add the user to the channel based on whether or not they already existed in it
                     if (userList.includes(req.body.users[0])) {
                         userList = userList.filter(
                             (user) => user != req.body.users[0]
@@ -269,7 +273,7 @@ exports.deleteChannel = asyncHandler(async (req, res, next) => {
             channel: req.params.channelId,
         }).exec();
 
-        // TODO: Decide if I want to delete channel from all users?
+        // TODO: DECIDE IF I WANT TO DELETE MESSAGE FROM ALL CHANNEL USERS?
         // Currently deletes from all users
         channel.users.forEach(async (element) => {
             await User.findByIdAndUpdate(element, {

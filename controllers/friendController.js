@@ -6,6 +6,7 @@ const asyncHandler = require("express-async-handler");
 const { body, validationResult } = require("express-validator");
 
 exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
+    // Checks if users token id matches params id
     if (req.user._id === req.params.userId) {
         const friends = await Friend.find({ user: req.user._id })
             .populate("targetUser", {
@@ -17,7 +18,7 @@ exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
             .lean()
             .exec();
 
-        // Get url for uers avatar image
+        // Get url for users avatar image
         for (let friend of friends) {
             if (friend.targetUser.avatar == "") {
                 friend.targetUser["avatarURL"] = process.env.DEFAULT_AVATAR;
@@ -37,7 +38,7 @@ exports.getAllUserFriends = asyncHandler(async (req, res, next) => {
 });
 
 exports.createFriend = [
-    body("targetUser", "Have to specify a user.")
+    body("targetUser", "Have to specify a users name.")
         .trim()
         .notEmpty()
         .custom(async (value, { req }) => {
@@ -46,6 +47,7 @@ exports.createFriend = [
             if (!user) {
                 throw new Error(`No user with name "${value}" exists.`);
             } else {
+                // Checks if a friend request already exists and what the status is
                 const friend = await Friend.findOne({
                     user: req.user._id,
                     targetUser: user._id,
@@ -62,6 +64,7 @@ exports.createFriend = [
                         `You have already sent ${value} a friend request.`
                     );
                 } else {
+                    // If no existing friend request, save recipient Id for friend creation
                     req.body.recipientId = user._id;
                 }
             }
@@ -70,6 +73,7 @@ exports.createFriend = [
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
+        // Checks if users token id matches params id
         if (req.user._id === req.params.userId) {
             if (!errors.isEmpty()) {
                 res.status(400).json({
@@ -115,6 +119,7 @@ exports.createFriend = [
 ];
 
 exports.getFriend = asyncHandler(async (req, res, next) => {
+    // Checks if users token id matches params id
     if (req.user._id === req.params.userId) {
         const friend = await Friend.findById(req.params.friendId)
             .populate("targetUser", {
@@ -150,30 +155,39 @@ exports.getFriend = asyncHandler(async (req, res, next) => {
 });
 
 exports.updateFriend = asyncHandler(async (req, res, next) => {
+    // Checks if users token id matches params id
     if (req.user._id === req.params.userId) {
+        // Get both friend database entries
         const friendA = await Friend.findById(req.params.friendId).exec();
-        const friendB = await Friend.findOne({
-            user: friendA.targetUser,
-            targetUser: friendA.user,
-        }).exec();
 
-        if (!friendA || !friendB) {
+        if (!friendA) {
             // Inform client that friend was not found
             return res.status(404).json({ error: "Friend not found." });
         } else {
-            await Friend.findByIdAndUpdate(friendA._id, {
-                $set: { status: 3 },
+            const friendB = await Friend.findOne({
+                user: friendA.targetUser,
+                targetUser: friendA.user,
             }).exec();
 
-            await Friend.findByIdAndUpdate(friendB._id, {
-                $set: { status: 3 },
-            }).exec();
+            if (!friendB) {
+                // TODO: SHOULD PROBABLY DELETE FRIENDA SINCE IT DOESN"T MATCH UP WITH ANYTHING
+                return res.status(404).json({ error: "Friend not found." });
+            } else {
+                // Updates both friend entries with status of 3 (friends)
+                await Friend.findByIdAndUpdate(friendA._id, {
+                    $set: { status: 3 },
+                }).exec();
 
-            res.json({
-                friendId: friendA._id,
-                targetUser: friendA.targetUser,
-                message: "Friend successfully updated.",
-            });
+                await Friend.findByIdAndUpdate(friendB._id, {
+                    $set: { status: 3 },
+                }).exec();
+
+                res.json({
+                    friendId: friendA._id,
+                    targetUser: friendA.targetUser,
+                    message: "Friend successfully updated.",
+                });
+            }
         }
     } else {
         res.status(403).json({
@@ -183,6 +197,7 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
 });
 
 exports.deleteFriend = asyncHandler(async (req, res, next) => {
+    // Checks if users token id matches params id
     if (req.user._id === req.params.userId) {
         const friendA = await Friend.findByIdAndDelete(
             req.params.friendId
@@ -191,6 +206,7 @@ exports.deleteFriend = asyncHandler(async (req, res, next) => {
         if (!friendA) {
             return res.status(404).json({ error: "Error finding Friend" });
         } else {
+            // Delete the opposite friend entry and update both users involved
             const friendB = await Friend.findOneAndDelete({
                 user: friendA.targetUser,
                 targetUser: friendA.user,
