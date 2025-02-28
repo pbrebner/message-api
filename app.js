@@ -13,7 +13,12 @@ const indexRouter = require("./routes/index");
 const apiRouter = require("./routes/api");
 
 const app = express();
-app.use(cors());
+
+app.use(
+    cors({
+        origin: ["http://localhost:5173", "https://pbrebner.github.io"],
+    })
+);
 
 // Set up mongoose connection
 const mongoose = require("mongoose");
@@ -53,10 +58,9 @@ app.use(function (err, req, res, next) {
     res.locals.message = err.message;
     res.locals.error = req.app.get("env") === "development" ? err : {};
 
-    // render the error page
+    // return the error
     res.status(err.status || 500);
     res.json({ status: err.status, errMessage: err.message });
-    //res.render("error");
 });
 
 module.exports = { app: app, server: server };
