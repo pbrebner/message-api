@@ -22,6 +22,7 @@ exports.getAllChannelMessages = asyncHandler(async (req, res, next) => {
         "users"
     ).exec();
 
+    // Checks if channel includes the users id
     if (channel.users.includes(req.user._id)) {
         const messages = await Message.find(
             { channel: req.params.channelId, posted: true },
@@ -69,6 +70,7 @@ exports.createMessage = [
         .trim()
         .optional()
         .custom((value, { req }) => {
+            // Verify file type and size contraints
             const file = req.file;
             const allowedFileTypes = [
                 "image/png",
@@ -104,21 +106,20 @@ exports.createMessage = [
             "users"
         ).exec();
 
+        // Checks if channel includes the users id
         if (!channel.users.includes(req.user._id)) {
-            res.status(403).json({
+            return res.status(403).json({
                 error: "Not authorized for this action.",
             });
-            return;
         } else if (!errors.isEmpty()) {
-            res.status(400).json({
+            return res.status(400).json({
                 errors: errors.array(),
             });
-            return;
         } else if (!req.body.content && !req.file) {
-            res.status(400).json({
+            // If there is no message and no file throw error
+            return res.status(400).json({
                 errors: [{ msg: "Can't send empty message." }],
             });
-            return;
         } else {
             let content = "";
             let fileName = "";
@@ -143,52 +144,31 @@ exports.createMessage = [
                 posted = false;
             }
 
+            // Create message document
+            const message = new Message({
+                content: content,
+                image: fileName,
+                posted: posted,
+                user: req.user._id,
+                channel: req.params.channelId,
+            });
+
             if (req.body.inResponseTo) {
-                // Create Message
-                const message = new Message({
-                    content: content,
-                    image: fileName,
-                    inResponseTo: req.body.inResponseTo,
-                    posted: posted,
-                    user: req.user._id,
-                    channel: req.params.channelId,
-                });
-
-                await message.save();
-
-                //Add message to channel
-                await Channel.findByIdAndUpdate(req.params.channelId, {
-                    $push: { messages: message },
-                }).exec();
-
-                res.json({
-                    messageId: message._id,
-                    messageImageURL: messageImageURL,
-                    message: "Message saved successfully.",
-                });
-            } else {
-                // Create Message
-                const message = new Message({
-                    content: content,
-                    image: fileName,
-                    posted: posted,
-                    user: req.user._id,
-                    channel: req.params.channelId,
-                });
-
-                await message.save();
-
-                //Add message to channel
-                await Channel.findByIdAndUpdate(req.params.channelId, {
-                    $push: { messages: message },
-                }).exec();
-
-                res.json({
-                    messageId: message._id,
-                    messageImageURL: messageImageURL,
-                    message: "Message saved successfully.",
-                });
+                message.inResponseTo = req.body.inResponseTo;
             }
+
+            await message.save();
+
+            //Add message to channel
+            await Channel.findByIdAndUpdate(req.params.channelId, {
+                $push: { messages: message },
+            }).exec();
+
+            res.json({
+                messageId: message._id,
+                messageImageURL: messageImageURL,
+                message: "Message saved successfully.",
+            });
         }
     }),
 ];
@@ -207,11 +187,12 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     if (!message) {
         return res.status(404).json({ error: "No entries found in database" });
     } else {
+        // Get url for message image
         if (message.image != "") {
             message["imageURL"] = await getSignedURL(message.image);
         }
 
-        // Get url for uers avatar image
+        // Get url for users avatar image
         if (message.user.avatar == "") {
             message.user["avatarURL"] = process.env.DEFAULT_AVATAR;
         } else {
@@ -222,6 +203,8 @@ exports.getMessage = asyncHandler(async (req, res, next) => {
     }
 });
 
+// Can currently only update content, likes and inResponseTo
+// Updating file is not possible at this moment
 exports.updateMessage = [
     body("content", "Message text can't be more than 600 characters.")
         .trim()
@@ -248,27 +231,26 @@ exports.updateMessage = [
         ).exec();
         const message = await Message.findById(req.params.messageId).exec();
 
+        // Checks if channel includes the users id
         if (!channel.users.includes(req.user._id)) {
-            res.status(403).json({
+            return res.status(403).json({
                 error: "Not authorized for this action.",
             });
-            return;
         } else if (!message) {
-            res.status(404).json({
+            return res.status(404).json({
                 error: `No message with id ${req.params.messageId} exists.`,
             });
-            return;
         } else if (!errors.isEmpty()) {
-            res.status(400).json({
+            return res.status(400).json({
                 errors: errors.array(),
             });
-            return;
         } else if (!req.body.content && !message.content && !message.image) {
-            res.status(400).json({
+            // If there is no message and no file throw error
+            return res.status(400).json({
                 errors: [{ msg: "Can't send empty message." }],
             });
-            return;
         } else {
+            // Get message content if it exists
             let content = "";
             if (req.body.content) {
                 content = req.body.content;
@@ -289,7 +271,7 @@ exports.updateMessage = [
                 }).exec();
             }
 
-            res.json({
+            return res.json({
                 messageId: message._id,
                 message: "Message updated successfully.",
             });
@@ -323,11 +305,13 @@ exports.deleteMessage = asyncHandler(async (req, res, next) => {
             $pull: { messages: message._id },
         }).exec();
 
-        res.json({
+        return res.json({
             message: "Message deleted successfully.",
             messageId: message._id,
         });
     } else {
-        res.status(403).json({ error: "Not authorized for this action." });
+        return res
+            .status(403)
+            .json({ error: "Not authorized for this action." });
     }
 });
