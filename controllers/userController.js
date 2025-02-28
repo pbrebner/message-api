@@ -27,7 +27,7 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
         .lean()
         .exec();
 
-    // Get url for avatar image
+    // Get signed url for avatar image
     for (let user of users) {
         if (user.avatar == "") {
             user["avatarURL"] = process.env.DEFAULT_AVATAR;
@@ -40,7 +40,7 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
 });
 
 exports.createUser = [
-    body("name", "Name must not be between 1 and 30 characters.")
+    body("name", "Name must be between 1 and 30 characters.")
         .trim()
         .isLength({ min: 1, max: 30 })
         .custom(async (value) => {
@@ -51,7 +51,7 @@ exports.createUser = [
                 );
             }
         })
-        .escape(),
+        .blacklist("<>"),
     body("email")
         .trim()
         .isLength({ min: 1 })
@@ -59,24 +59,52 @@ exports.createUser = [
         .isEmail()
         .withMessage("Email is not proper email format.")
         .custom(async (value) => {
+            // Check for characters not allowed and throw error if found
+            const errorValues = ["<", ">", "&", "'", '"', "/"];
+            let error = false;
+            errorValues.forEach((errorValue) => {
+                if (value.includes(errorValue)) {
+                    error = true;
+                }
+            });
+
+            if (error) {
+                throw new Error(
+                    "Email can't contain the following values: <, >, &, ', \", /."
+                );
+            }
+
             const user = await User.find({ email: value }).exec();
             if (user.length > 0) {
                 throw new Error(
                     "Email is already in use, please use a different one."
                 );
             }
-        })
-        .escape(),
+        }),
     body("password", "Password must be a minimum of 6 characters.")
         .trim()
         .isLength({ min: 6 })
-        .escape(),
+        .custom((value) => {
+            // Check for characters not allowed and throw error if found
+            const errorValues = ["<", ">", "&", "'", '"', "/"];
+            let error = false;
+            errorValues.forEach((errorValue) => {
+                if (value.includes(errorValue)) {
+                    error = true;
+                }
+            });
+
+            if (error) {
+                throw new Error(
+                    "Password can't contain the following values: <, >, &, ', \", /."
+                );
+            }
+        }),
     body("passwordConfirm", "Passwords must match.")
         .trim()
         .custom((value, { req }) => {
             return value === req.body.password;
-        })
-        .escape(),
+        }),
     asyncHandler(async (req, res, next) => {
         const errors = validationResult(req);
 
@@ -111,7 +139,7 @@ exports.createUser = [
 
 exports.getUser = asyncHandler(async (req, res, next) => {
     if (req.user._id === req.params.userId) {
-        // Get the users info of the supplied access token
+        // Provide users own details as token id matched params id (Clicked on own account)
         const user = await User.findOne(
             { _id: req.user._id },
             "name email bio avatar memberStatus friends channels online timeStamp"
@@ -124,27 +152,31 @@ exports.getUser = asyncHandler(async (req, res, next) => {
         if (!user) {
             // Inform client that not user was found
             res.status(404).json({ error: "User not found." });
-        } else if (user.email == "sarawilson@example.com") {
-            // Get url for avatar image
-            if (user.avatar == "") {
-                user["avatarURL"] = process.env.DEFAULT_AVATAR;
-            } else {
-                user["avatarURL"] = await getSignedURL(user.avatar);
-            }
-
-            res.json({ user: user, guestProfile: true, usersProfile: true });
         } else {
-            // Get url for avatar image
+            // Get url for avatar
             if (user.avatar == "") {
                 user["avatarURL"] = process.env.DEFAULT_AVATAR;
             } else {
                 user["avatarURL"] = await getSignedURL(user.avatar);
             }
 
-            res.json({ user: user, guestProfile: false, usersProfile: true });
+            // If guest account, sets guest profile as true
+            if (user.email == "sarawilson@example.com") {
+                res.json({
+                    user: user,
+                    guestProfile: true,
+                    usersProfile: true,
+                });
+            } else {
+                res.json({
+                    user: user,
+                    guestProfile: false,
+                    usersProfile: true,
+                });
+            }
         }
     } else {
-        // Get the other users info from the parameters
+        // Provide other users details (Clicked on someone elses account)
         const user = await User.findOne(
             { _id: req.params.userId },
             "name bio avatar memberStatus online timeStamp"
@@ -170,7 +202,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 
 exports.updateUser = [
     upload.single("avatar"),
-    body("name", "Name must not be between 1 and 30 characters.")
+    body("name", "Name must be between 1 and 30 characters.")
         .trim()
         .isLength({ min: 1, max: 30 })
         .custom(async (value, { req }) => {
@@ -185,13 +217,28 @@ exports.updateUser = [
             }
         })
         .optional()
-        .escape(),
+        .blacklist("<>"),
     body("email", "Email must not be empty.")
         .trim()
         .isLength({ min: 1 })
         .isEmail()
         .withMessage("Email is not proper email format.")
         .custom(async (value, { req }) => {
+            // Check for characters not allowed and throw error if found
+            const errorValues = ["<", ">", "&", "'", '"', "/"];
+            let error = false;
+            errorValues.forEach((errorValue) => {
+                if (value.includes(errorValue)) {
+                    error = true;
+                }
+            });
+
+            if (error) {
+                throw new Error(
+                    "Email can't contain the following values: <, >, &, ', \", /."
+                );
+            }
+
             const currentUser = await User.findById(req.user._id).exec();
             const user = await User.find({ email: value }).exec();
 
@@ -202,8 +249,7 @@ exports.updateUser = [
                 );
             }
         })
-        .optional()
-        .escape(),
+        .optional(),
     body("bio", "Bio must be less than 300 characters.")
         .trim()
         .isLength({ max: 300 })
@@ -213,6 +259,7 @@ exports.updateUser = [
         .trim()
         .optional()
         .custom(async (value, { req }) => {
+            // Verifies file type and size contraints
             const file = req.file;
             const allowedFileTypes = ["image/png", "image/jpeg", "image/jpg"];
             const allowedSize = 5;
@@ -246,7 +293,7 @@ exports.updateUser = [
                 let fileName = "";
 
                 if (req.file) {
-                    // Change the size of the avatar
+                    // Change the size of the avatar image if provided
                     const fileBuffer = await sharp(req.file.buffer)
                         .resize({ height: 1080, width: 1080, fit: "cover" })
                         .toBuffer();
@@ -255,7 +302,7 @@ exports.updateUser = [
                 }
 
                 if (user.email == "sarawilson@example.com") {
-                    // Update Guest User (except Email)
+                    // Update Guest User (except Email which can't be changed for log in purposes)
                     const updatedUser = await User.findByIdAndUpdate(
                         req.user._id,
                         {
@@ -302,23 +349,27 @@ exports.updateUser = [
 exports.deleteUser = asyncHandler(async (req, res, next) => {
     //Confirm user is deleting their own account
     if (req.user._id === req.params.userId) {
-        const user = await User.findByIdAndDelete(req.user._id).exec();
+        const user = await User.findById(req.user._id).exec();
 
         if (!user) {
             return res
                 .status(404)
                 .json({ error: `No user with id ${req.user._id} exists` });
         } else if (user.email == "sarawilson@example.com") {
+            // This is the guest account and can't be deleted
             return res
                 .status(405)
                 .json({ error: `Deleting guest account not allowed` });
         } else {
+            // Delete the user
+            await User.findByIdAndDelete(req.user._id).exec();
+
             // Delete avatar off s3 bucket if not default
             if (user.avatar != "") {
                 await deleteFileS3(user.avatar);
             }
 
-            // Delete Friends
+            // Delete Friends and update users linked contacts
             await Friend.deleteMany({ user: req.user._id });
             const friends = await Friend.deleteMany({
                 userTarget: req.user._id,
@@ -332,7 +383,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 });
             }
 
-            // Delete channels if user was one of two users
+            // Delete channels if user was one of only two users
             const channels = await Channel.find(
                 { users: { $in: req.user._id } },
                 "users"
@@ -353,7 +404,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
                 });
             }
 
-            // Delete all messages
+            // Delete all user messages
             await Message.deleteMany({
                 user: req.user._id,
             }).exec();
@@ -361,8 +412,6 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
             res.json({
                 message: "User deleted successfully.",
                 userId: user._id,
-                // channels: channels,
-                // messages: messages,
             });
         }
     } else {
