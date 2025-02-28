@@ -63,14 +63,19 @@ exports.createChannel = [
                 errors: errors.array(),
             });
         } else {
-            // Get userList and add current user
+            // Get userList and add current users id
             const userList = req.body.users;
             userList.push(req.user._id);
 
-            // Check if channel with these users already exists
-            // TODO: CHECK IF CHANNEL TITLE IS DIFFERENT?
+            let title = "";
+            if (req.body.title) {
+                title = req.body.title;
+            }
+
+            // Check if channel with these users and title already exists
             const channelCheck = await Channel.findOne({
                 $and: [
+                    { title: title },
                     { users: { $all: userList } },
                     { users: { $size: userList.length } },
                 ],
@@ -250,6 +255,7 @@ exports.updateChannel = [
     }),
 ];
 
+// Deletes channel and all messages from all users in channel
 exports.deleteChannel = asyncHandler(async (req, res, next) => {
     const channel = await Channel.findById(
         req.params.channelId,
@@ -273,7 +279,6 @@ exports.deleteChannel = asyncHandler(async (req, res, next) => {
             channel: req.params.channelId,
         }).exec();
 
-        // TODO: DECIDE IF I WANT TO DELETE MESSAGE FROM ALL CHANNEL USERS?
         // Currently deletes from all users
         channel.users.forEach(async (element) => {
             await User.findByIdAndUpdate(element, {
