@@ -41,7 +41,7 @@ exports.uploadFileS3 = async (file, fileBuffer) => {
     return fileName;
 };
 
-//Generate signed URL
+// Generate signed URL that expires
 exports.getSignedURL = async (fileName) => {
     const getObjectParams = {
         Bucket: bucketName,
@@ -49,7 +49,7 @@ exports.getSignedURL = async (fileName) => {
     };
 
     const command = new GetObjectCommand(getObjectParams);
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 36000 });
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 1500 * 60 }); // Expires in 1500 seconds
 
     return url;
 };
