@@ -170,7 +170,9 @@ exports.updateFriend = asyncHandler(async (req, res, next) => {
             }).exec();
 
             if (!friendB) {
-                // TODO: SHOULD PROBABLY DELETE FRIENDA SINCE IT DOESN"T MATCH UP WITH ANYTHING
+                // If friendB doesn't exist then friendA is removed as it doesn't have a match
+                await Friend.findByIdAndDelete(req.params.friendId).exec();
+
                 return res.status(404).json({ error: "Friend not found." });
             } else {
                 // Updates both friend entries with status of 3 (friends)
